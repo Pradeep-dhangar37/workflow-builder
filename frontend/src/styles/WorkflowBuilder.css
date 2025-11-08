@@ -1,0 +1,32 @@
+.workflow-builder {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e1e;
+    color: #fff;
+}
+
+.builder-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 15px 20px;
+    background: #252526;
+    border-bottom: 1px solid #3e3e42;
+}
+
+.workflow-name-input {
+    flex: 1;
+    padding: 8px 12px;
+    background: #3c3c3c;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 16px;
+}
+
+.builder-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}

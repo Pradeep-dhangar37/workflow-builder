@@ -1,0 +1,47 @@
+.node-palette {
+    width: 200px;
+    background: #252526;
+    border-right: 1px solid #3e3e42;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.node-palette h3 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #999;
+}
+
+.node-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.node-type-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: #2d2d30;
+    border: 1px solid #3e3e42;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.node-type-item:hover {
+    background: #3e3e42;
+    border-color: #007acc;
+    transform: translateX(5px);
+}
+
+.node-type-item .node-icon {
+    font-size: 20px;
+}
+
+.node-type-item .node-label {
+    font-size: 14px;
+    font-weight: 500;
+}

@@ -1,0 +1,119 @@
+.node {
+    position: absolute;
+    width: 300px;
+    background: #2d2d30;
+    border: 2px solid #3e3e42;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.node:hover {
+    border-color: #007acc;
+    box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
+}
+
+.node.selected {
+    border-color: #007acc;
+    box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.2);
+}
+
+.node.connecting {
+    border-color: #4ec9b0;
+    animation: pulse-border 1s infinite;
+}
+
+@keyframes pulse-border {
+
+    0%,
+    100% {
+        border-color: #4ec9b0;
+    }
+
+    50% {
+        border-color: #6ed9c0;
+    }
+}
+
+.node-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: #3e3e42;
+    border-radius: 6px 6px 0 0;
+}
+
+.node-icon {
+    font-size: 20px;
+}
+
+.node-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.node-delete-btn {
+    background: transparent;
+    border: none;
+    color: #999;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.node-delete-btn:hover {
+    color: #f48771;
+}
+
+.node-body {
+    padding: 12px;
+    min-height: 40px;
+}
+
+.node-info {
+    font-size: 12px;
+    color: #999;
+    padding: 4px 8px;
+    background: #1e1e1e;
+    border-radius: 4px;
+}
+
+.node-actions {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid #3e3e42;
+}
+
+.node-config-btn,
+.node-connect-btn {
+    flex: 1;
+    padding: 6px 12px;
+    background: #0e639c;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.node-config-btn:hover {
+    background: #1177bb;
+}
+
+.node-connect-btn {
+    background: #4ec9b0;
+}
+
+.node-connect-btn:hover {
+    background: #5ed9c0;
+}

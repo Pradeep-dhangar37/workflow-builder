@@ -1,0 +1,84 @@
+.execution-panel {
+    width: 350px;
+    background: #252526;
+    border-left: 1px solid #3e3e42;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.execution-panel h3 {
+    margin: 0 0 15px 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #999;
+}
+
+.execution-empty {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+}
+
+.execution-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    padding: 40px 20px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #3e3e42;
+    border-top-color: #007acc;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.execution-success,
+.execution-error {
+    padding: 15px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.execution-success {
+    background: #1e3a1e;
+    border: 1px solid #2d5a2d;
+}
+
+.execution-error {
+    background: #3a1e1e;
+    border: 1px solid #5a2d2d;
+}
+
+.result-item {
+    margin-bottom: 15px;
+}
+
+.result-item:last-child {
+    margin-bottom: 0;
+}
+
+.result-item strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #4ec9b0;
+}
+
+.result-item pre {
+    background: #1e1e1e;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+}
