@@ -2,7 +2,7 @@
 const getApiBaseUrl = () => {
     // Check if we're in production and environment variable is not set
     if (process.env.NODE_ENV === 'production' && !process.env.REACT_APP_API_URL) {
-        return 'https://workflow-builder-2rj3.onrender.com';
+        return 'https://workflow-builder-id6k.onrender.com';
     }
     return process.env.REACT_APP_API_URL || 'http://localhost:3001';
 };
