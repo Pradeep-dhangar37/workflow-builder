@@ -130,55 +130,138 @@ function ExecutionPanel({ result, isExecuting, onExecute, currentWorkflowId }) {
 
                 {result && !result.error && (
                     <>
-                        {/* Query Workflow Display */}
-                        {result.finalOutput?.question && result.finalOutput?.answer && (
+                        {/* Output Node Results Display */}
+                        {result.finalOutput?.type === 'output' && result.finalOutput?.formatted && (
                             <div className="space-y-4">
-                                {/* Question */}
+                                {/* Workflow Type Header */}
+                                {result.finalOutput.formatted.workflowType && (
+                                    <div className="p-3 rounded bg-gray-700/50 border border-gray-600">
+                                        <div className="text-xs uppercase text-gray-400">Workflow Type</div>
+                                        <div className="text-sm text-white">{result.finalOutput.formatted.workflowType}</div>
+                                    </div>
+                                )}
+
+                                {/* Query Workflow Results */}
+                                {result.finalOutput.formatted.type === 'Query Result' && (
+                                    <>
+                                        <div className="p-4 rounded-lg bg-blue-900/30 border border-blue-700">
+                                            <div className="text-xs uppercase text-blue-400 mb-2">Question</div>
+                                            <div className="text-white text-sm leading-relaxed">
+                                                {result.finalOutput.formatted.question}
+                                            </div>
+                                        </div>
+
+                                        <div className="p-4 rounded-lg bg-green-900/30 border border-green-700">
+                                            <div className="text-xs uppercase text-green-400 mb-2">Answer</div>
+                                            <div className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                                                {result.finalOutput.formatted.answer}
+                                            </div>
+                                        </div>
+
+                                        {/* Conversation Context */}
+                                        {result.finalOutput.formatted.conversationLength > 0 && (
+                                            <div className="p-3 rounded bg-purple-900/30 border border-purple-700">
+                                                <div className="text-xs uppercase text-purple-400 mb-2">Conversation Context</div>
+                                                <div className="text-sm text-gray-300">
+                                                    {result.finalOutput.formatted.conversationLength} messages in history
+                                                </div>
+                                                {result.finalOutput.formatted.previousQuestions && (
+                                                    <div className="mt-2 text-xs text-gray-400">
+                                                        Recent questions: {result.finalOutput.formatted.previousQuestions.join(', ')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Source Chunks */}
+                                        {result.finalOutput.formatted.sourceChunks && result.finalOutput.formatted.sourceChunks.length > 0 && (
+                                            <details className="p-3 rounded bg-gray-700/50 border border-gray-600">
+                                                <summary className="text-xs uppercase text-gray-400 cursor-pointer hover:text-white">
+                                                    📚 Retrieved Sources ({result.finalOutput.formatted.sourceChunks.length})
+                                                </summary>
+                                                <div className="mt-3 space-y-2">
+                                                    {result.finalOutput.formatted.sourceChunks.map((chunk, idx) => (
+                                                        <div key={idx} className="p-2 bg-gray-800 rounded text-xs text-gray-300">
+                                                            <div className="text-gray-500 mb-1">Chunk {chunk.index}</div>
+                                                            <div>{chunk.content}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </details>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Ingestion Workflow Results */}
+                                {result.finalOutput.formatted.type === 'Ingestion Result' && (
+                                    <div className="p-4 rounded-lg bg-green-900/30 border border-green-700">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className="text-2xl">✅</span>
+                                            <span className="text-green-400 font-semibold">Document Ingestion Complete</span>
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div>
+                                                <span className="text-gray-400">Knowledge Base:</span>
+                                                <span className="text-white ml-2 font-medium">{result.finalOutput.formatted.knowledgeBase}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-400">Chunks Added:</span>
+                                                <span className="text-teal-400 ml-2 font-bold">{result.finalOutput.formatted.chunksAdded}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-400">Total Chunks:</span>
+                                                <span className="text-white ml-2">{result.finalOutput.formatted.totalChunks}</span>
+                                            </div>
+                                            {result.finalOutput.formatted.message && (
+                                                <div className="pt-2 border-t border-green-700 text-xs text-gray-300">
+                                                    {result.finalOutput.formatted.message}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Text Format Display */}
+                                {result.finalOutput.format === 'text' && result.finalOutput.formatted.text && (
+                                    <div className="p-4 rounded-lg bg-gray-800 border border-gray-600">
+                                        <div className="text-xs uppercase text-gray-400 mb-2">Text Output</div>
+                                        <pre className="text-sm text-white whitespace-pre-wrap font-mono">
+                                            {result.finalOutput.formatted.text}
+                                        </pre>
+                                    </div>
+                                )}
+
+                                {/* Metadata */}
+                                {result.finalOutput.metadata && (
+                                    <div className="p-3 rounded bg-gray-700/50 border border-gray-600">
+                                        <div className="text-xs uppercase text-gray-400 mb-2">Processing Info</div>
+                                        <div className="text-xs text-gray-300 space-y-1">
+                                            <div>Processed: {new Date(result.finalOutput.metadata.processedAt).toLocaleString()}</div>
+                                            <div>Format: {result.finalOutput.format || 'detailed'}</div>
+                                            {result.finalOutput.metadata.dataSize && (
+                                                <div>Data Size: {result.finalOutput.metadata.dataSize} bytes</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Fallback for non-Output node results */}
+                        {result.finalOutput && result.finalOutput.type !== 'output' && result.finalOutput?.question && result.finalOutput?.answer && (
+                            <div className="space-y-4">
                                 <div className="p-4 rounded-lg bg-blue-900/30 border border-blue-700">
-                                    <div className="text-xs uppercase text-blue-400 mb-2">Your Question</div>
+                                    <div className="text-xs uppercase text-blue-400 mb-2">Question</div>
                                     <div className="text-white text-sm leading-relaxed">
                                         {result.finalOutput.question}
                                     </div>
                                 </div>
-
-                                {/* Answer */}
                                 <div className="p-4 rounded-lg bg-green-900/30 border border-green-700">
                                     <div className="text-xs uppercase text-green-400 mb-2">Answer</div>
                                     <div className="text-white text-sm leading-relaxed whitespace-pre-wrap">
                                         {result.finalOutput.answer}
                                     </div>
                                 </div>
-
-                                {/* Session Info */}
-                                {result.finalOutput.sessionId && (
-                                    <div className="p-3 rounded bg-gray-700/50 border border-gray-600">
-                                        <div className="text-xs text-gray-400">
-                                            Session: <span className="text-teal-400">{result.finalOutput.sessionId}</span>
-                                        </div>
-                                        {result.finalOutput.formatted?.timestamp && (
-                                            <div className="text-xs text-gray-400 mt-1">
-                                                Time: {new Date(result.finalOutput.formatted.timestamp).toLocaleTimeString()}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Relevant Chunks */}
-                                {result.finalOutput.chunks && result.finalOutput.chunks.length > 0 && (
-                                    <details className="p-3 rounded bg-gray-700/50 border border-gray-600">
-                                        <summary className="text-xs uppercase text-gray-400 cursor-pointer hover:text-white">
-                                            📚 Source Chunks ({result.finalOutput.chunks.length})
-                                        </summary>
-                                        <div className="mt-3 space-y-2">
-                                            {result.finalOutput.chunks.map((chunk, idx) => (
-                                                <div key={idx} className="p-2 bg-gray-800 rounded text-xs text-gray-300">
-                                                    <div className="text-gray-500 mb-1">Chunk {chunk.index}</div>
-                                                    <div className="line-clamp-3">{chunk.content}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </details>
-                                )}
                             </div>
                         )}
 

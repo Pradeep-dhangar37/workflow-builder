@@ -176,10 +176,44 @@ function NodeConfig({ node, onClose, onSave }) {
                     )}
 
                     {node.type === 'output' && (
-                        <div className="px-3 py-3 bg-gray-600 rounded text-sm text-gray-400">
-                            Output node displays the final result.
-                            No configuration needed.
-                        </div>
+                        <>
+                            <div className="mb-5">
+                                <label className="block mb-2 text-sm text-gray-300">Output Format</label>
+                                <select
+                                    value={config.format || 'detailed'}
+                                    onChange={(e) => setConfig({ ...config, format: e.target.value })}
+                                    className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                                >
+                                    <option value="detailed">Detailed (Full Information)</option>
+                                    <option value="summary">Summary (Key Points Only)</option>
+                                    <option value="json">JSON (Raw Data)</option>
+                                    <option value="text">Text (Plain Text)</option>
+                                </select>
+                            </div>
+
+                            <div className="mb-5">
+                                <label className="flex items-center text-sm text-gray-300 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={config.includeMetadata !== false}
+                                        onChange={(e) => setConfig({ ...config, includeMetadata: e.target.checked })}
+                                        className="mr-2"
+                                    />
+                                    Include metadata (timestamps, processing info)
+                                </label>
+                            </div>
+
+                            <div className="mb-5">
+                                <label className="block mb-2 text-sm text-gray-300">Custom Title (Optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g., Final Results, Analysis Output"
+                                    value={config.title || ''}
+                                    onChange={(e) => setConfig({ ...config, title: e.target.value })}
+                                    className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                                />
+                            </div>
+                        </>
                     )}
                 </div>
 

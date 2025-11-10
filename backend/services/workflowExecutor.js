@@ -446,15 +446,191 @@ async function executeOutputNode(node, inputData) {
         throw new Error('Output node did not receive any data');
     }
 
-    // Format the output for display
+    const config = node.config || {};
+    const outputFormat = config.format || 'detailed'; // detailed, summary, json, text
+    const includeMetadata = config.includeMetadata !== false; // default true
+    const customFields = config.customFields || [];
+
+    // Different output formatting based on configuration
+    let formattedOutput;
+
+    switch (outputFormat) {
+        case 'summary':
+            formattedOutput = createSummaryOutput(inputData, config);
+            break;
+        case 'json':
+            formattedOutput = createJsonOutput(inputData, config);
+            break;
+        case 'text':
+            formattedOutput = createTextOutput(inputData, config);
+            break;
+        case 'detailed':
+        default:
+            formattedOutput = createDetailedOutput(inputData, config);
+            break;
+    }
+
     return {
         type: 'output',
+        format: outputFormat,
         data: inputData,
-        formatted: {
-            question: inputData.question || 'N/A',
-            answer: inputData.answer || 'N/A',
-            sessionId: inputData.sessionId || 'N/A',
-            timestamp: new Date().toISOString()
-        }
+        formatted: formattedOutput,
+        metadata: includeMetadata ? {
+            processedAt: new Date().toISOString(),
+            nodeId: node.id,
+            workflowStep: 'final_output',
+            dataSize: JSON.stringify(inputData).length
+        } : undefined
     };
+}
+
+// Helper functions for different output formats
+function createDetailedOutput(inputData, config) {
+    const output = {
+        timestamp: new Date().toISOString(),
+        workflowType: determineWorkflowType(inputData)
+    };
+
+    // Query Workflow Output (Input -> RAG -> Memory -> Output)
+    if (inputData.question && inputData.answer) {
+        output.type = 'Query Result';
+        output.question = inputData.question;
+        output.answer = inputData.answer;
+        output.sessionId = inputData.sessionId || 'N/A';
+        output.source = inputData.source || 'rag';
+
+        // Include retrieved chunks if available
+        if (inputData.chunks && inputData.chunks.length > 0) {
+            output.sourceChunks = inputData.chunks.map(chunk => ({
+                content: chunk.content.substring(0, 100) + '...',
+                index: chunk.index
+            }));
+        }
+
+        // Include conversation context
+        if (inputData.conversationHistory) {
+            output.conversationLength = inputData.conversationHistory.length;
+            output.previousQuestions = inputData.conversationHistory
+                .filter(msg => msg.role === 'user')
+                .slice(-3) // Last 3 questions
+                .map(msg => msg.content.substring(0, 50) + '...');
+        }
+    }
+    // Ingestion Workflow Output (Input -> Store)
+    else if (inputData.knowledgeBase && inputData.chunksAdded !== undefined) {
+        output.type = 'Ingestion Result';
+        output.knowledgeBase = inputData.knowledgeBase;
+        output.chunksAdded = inputData.chunksAdded;
+        output.totalChunks = inputData.totalChunks;
+        output.message = inputData.message || 'Documents successfully processed and stored';
+        output.source = inputData.source || 'store';
+    }
+    // Generic processing result
+    else {
+        output.type = 'Processing Result';
+        output.result = 'Workflow completed successfully';
+        output.data = inputData;
+    }
+
+    return output;
+}
+
+function determineWorkflowType(inputData) {
+    if (inputData.question && inputData.answer) {
+        return 'Query Workflow (Input -> RAG -> Memory -> Output)';
+    } else if (inputData.knowledgeBase && inputData.chunksAdded !== undefined) {
+        return 'Ingestion Workflow (Input -> Store -> Output)';
+    } else {
+        return 'Custom Workflow';
+    }
+}
+
+function createSummaryOutput(inputData, config) {
+    const summary = {
+        timestamp: new Date().toISOString(),
+        workflowType: determineWorkflowType(inputData)
+    };
+
+    // Query Workflow Summary
+    if (inputData.question && inputData.answer) {
+        summary.type = 'Query Result';
+        summary.question = inputData.question.length > 100 ?
+            inputData.question.substring(0, 100) + '...' : inputData.question;
+        summary.answer = inputData.answer.length > 200 ?
+            inputData.answer.substring(0, 200) + '...' : inputData.answer;
+        summary.hasConversationHistory = !!(inputData.conversationHistory && inputData.conversationHistory.length > 0);
+        summary.sourceChunksCount = inputData.chunks ? inputData.chunks.length : 0;
+    }
+    // Ingestion Workflow Summary
+    else if (inputData.knowledgeBase && inputData.chunksAdded !== undefined) {
+        summary.type = 'Ingestion Complete';
+        summary.knowledgeBase = inputData.knowledgeBase;
+        summary.chunksAdded = inputData.chunksAdded;
+        summary.status = 'Success';
+    }
+    // Generic Summary
+    else {
+        summary.type = 'Processing Complete';
+        summary.status = 'Success';
+        summary.result = 'Workflow executed successfully';
+    }
+
+    return summary;
+}
+
+function createJsonOutput(inputData, config) {
+    // Clean JSON output without extra formatting
+    const cleanData = { ...inputData };
+    delete cleanData.conversationHistory; // Remove verbose history
+    return cleanData;
+}
+
+function createTextOutput(inputData, config) {
+    let textOutput = '';
+    const customTitle = config.title || '';
+
+    if (customTitle) {
+        textOutput += `${customTitle}\n${'='.repeat(customTitle.length)}\n\n`;
+    }
+
+    // Query Workflow Text Output
+    if (inputData.question && inputData.answer) {
+        textOutput += `QUESTION:\n${inputData.question}\n\n`;
+        textOutput += `ANSWER:\n${inputData.answer}\n\n`;
+
+        if (inputData.sessionId) {
+            textOutput += `Session ID: ${inputData.sessionId}\n`;
+        }
+
+        if (inputData.chunks && inputData.chunks.length > 0) {
+            textOutput += `\nSource Information:\n`;
+            textOutput += `- Retrieved ${inputData.chunks.length} relevant chunks\n`;
+        }
+
+        if (inputData.conversationHistory && inputData.conversationHistory.length > 0) {
+            textOutput += `- Conversation history: ${inputData.conversationHistory.length} messages\n`;
+        }
+    }
+    // Ingestion Workflow Text Output
+    else if (inputData.knowledgeBase && inputData.chunksAdded !== undefined) {
+        textOutput += `DOCUMENT INGESTION COMPLETE\n\n`;
+        textOutput += `Knowledge Base: ${inputData.knowledgeBase}\n`;
+        textOutput += `Chunks Added: ${inputData.chunksAdded}\n`;
+        textOutput += `Total Chunks: ${inputData.totalChunks || 'N/A'}\n`;
+        textOutput += `Status: Success\n`;
+
+        if (inputData.message) {
+            textOutput += `\nDetails: ${inputData.message}\n`;
+        }
+    }
+    // Generic Text Output
+    else {
+        textOutput += `WORKFLOW EXECUTION COMPLETE\n\n`;
+        textOutput += `Status: Success\n`;
+        textOutput += `Completed at: ${new Date().toISOString()}\n`;
+    }
+
+    textOutput += `\nProcessed at: ${new Date().toLocaleString()}`;
+
+    return { text: textOutput };
 }
