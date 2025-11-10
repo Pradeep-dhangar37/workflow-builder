@@ -76,10 +76,19 @@ function WorkflowBuilder() {
     };
 
     const addNode = (type) => {
+        // Set default configurations for different node types
+        let defaultConfig = {};
+        if (type === 'output') {
+            defaultConfig = {
+                format: 'detailed',
+                includeMetadata: true
+            };
+        }
+
         const newNode = {
             id: `node_${Date.now()}`,
             type,
-            config: {},
+            config: defaultConfig,
             position: { x: 100, y: nodeSequence.length * 120 + 50 }
         };
         setNodeSequence([...nodeSequence, newNode]);

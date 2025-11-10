@@ -111,16 +111,16 @@ function Node({ node, isSelected, isConnecting, onClick, onConnectStart, onUpdat
                             <span className="text-orange-300">Session:</span> {node.config.sessionId}
                         </div>
                     )}
-                    {node.type === 'output' && node.config?.format && (
+                    {node.type === 'output' && (
                         <div className="text-xs text-gray-300 px-2 py-1 bg-gray-900 rounded">
-                            <span className="text-cyan-300">Format:</span> {node.config.format}
-                            {node.config.title && <div><span className="text-cyan-300">Title:</span> {node.config.title}</div>}
+                            <span className="text-cyan-300">Format:</span> {node.config?.format || 'detailed'}
+                            {node.config?.title && <div><span className="text-cyan-300">Title:</span> {node.config.title}</div>}
                         </div>
                     )}
                     {!((node.type === 'store' && node.config?.knowledgeBaseName) ||
                         (node.type === 'rag' && node.config?.knowledgeBaseName) ||
                         (node.type === 'memory' && node.config?.sessionId) ||
-                        (node.type === 'output' && node.config?.format)) && (
+                        (node.type === 'output')) && (
                             <div className="text-xs text-gray-500 italic text-center py-2">
                                 Click Config to set up this node
                             </div>
