@@ -18,7 +18,7 @@ function WorkflowControls({
 
             // Check for duplicate names (only for new workflows)
             if (!currentWorkflowId) {
-                const existingWorkflowsResponse = await fetch('http://localhost:3001/api/workflows');
+                const existingWorkflowsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`);
                 const existingWorkflows = await existingWorkflowsResponse.json();
 
                 const duplicateName = existingWorkflows.find(w =>
@@ -39,7 +39,7 @@ function WorkflowControls({
             let response;
             if (currentWorkflowId) {
                 // Update existing workflow - check if name conflicts with other workflows
-                const existingWorkflowsResponse = await fetch('http://localhost:3001/api/workflows');
+                const existingWorkflowsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`);
                 const existingWorkflows = await existingWorkflowsResponse.json();
 
                 const duplicateName = existingWorkflows.find(w =>
@@ -52,14 +52,14 @@ function WorkflowControls({
                     return;
                 }
 
-                response = await fetch(`http://localhost:3001/api/workflows/${currentWorkflowId}`, {
+                response = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows/${currentWorkflowId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(workflow)
                 });
             } else {
                 // Create new workflow
-                response = await fetch('http://localhost:3001/api/workflows', {
+                response = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(workflow)
@@ -101,7 +101,7 @@ function WorkflowControls({
                 return;
             }
 
-            const response = await fetch('http://localhost:3001/api/executions', {
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/executions`, {
                 method: 'POST',
                 body: formData
             });

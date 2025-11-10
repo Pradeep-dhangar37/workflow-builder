@@ -12,7 +12,7 @@ function NodeConfig({ node, onClose, onSave }) {
 
     const fetchKnowledgeBases = async () => {
         try {
-            const response = await fetch('http://localhost:3001/api/knowledge-bases');
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/knowledge-bases`);
             const data = await response.json();
             setKnowledgeBases(data);
         } catch (error) {
