@@ -82,16 +82,38 @@ function NodeConfig({ node, onClose, onSave }) {
                         <>
                             <div className="mb-5">
                                 <label className="block mb-2 text-sm text-gray-300">Knowledge Base to Query</label>
-                                <select
+                                <div className="flex gap-2">
+                                    <select
+                                        value={config.knowledgeBaseName || ''}
+                                        onChange={(e) => setConfig({ ...config, knowledgeBaseName: e.target.value })}
+                                        className="flex-1 px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                                    >
+                                        <option value="">Select knowledge base...</option>
+                                        {knowledgeBases.map(kb => (
+                                            <option key={kb._id} value={kb.name}>{kb.name}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        type="button"
+                                        onClick={fetchKnowledgeBases}
+                                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 border-none rounded text-white text-sm cursor-pointer transition-colors"
+                                        title="Refresh knowledge bases list"
+                                    >
+                                        🔄
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mb-5">
+                                <label className="block mb-2 text-sm text-gray-300">Or Enter Knowledge Base Name Manually</label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter KB name (e.g., test-kb)"
                                     value={config.knowledgeBaseName || ''}
                                     onChange={(e) => setConfig({ ...config, knowledgeBaseName: e.target.value })}
                                     className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm focus:outline-none focus:border-blue-500"
-                                >
-                                    <option value="">Select knowledge base...</option>
-                                    {knowledgeBases.map(kb => (
-                                        <option key={kb._id} value={kb.name}>{kb.name}</option>
-                                    ))}
-                                </select>
+                                />
+                                <p className="text-xs text-gray-400 mt-1">Use the same name as in your Store node</p>
                             </div>
 
                             <div className="mb-5">

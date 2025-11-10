@@ -5,8 +5,7 @@ import WorkflowControls from './WorkflowControls';
 import ExecutionPanel from './ExecutionPanel';
 
 function WorkflowBuilder() {
-    const [nodes, setNodes] = useState([]);
-    const [connections, setConnections] = useState([]);
+    const [nodeSequence, setNodeSequence] = useState([]);
     const [selectedNode, setSelectedNode] = useState(null);
     const [workflowName, setWorkflowName] = useState('New Workflow');
     const [executionResult, setExecutionResult] = useState(null);
@@ -30,16 +29,14 @@ function WorkflowBuilder() {
     };
 
     const loadWorkflow = (workflow) => {
-        setNodes(workflow.nodes);
-        setConnections(workflow.connections);
+        setNodeSequence(workflow.nodeSequence || []);
         setWorkflowName(workflow.name);
         setCurrentWorkflowId(workflow._id);
         setExecutionResult(null);
     };
 
     const createNewWorkflow = () => {
-        setNodes([]);
-        setConnections([]);
+        setNodeSequence([]);
         setWorkflowName('New Workflow');
         setCurrentWorkflowId(null);
         setExecutionResult(null);
@@ -73,56 +70,44 @@ function WorkflowBuilder() {
             id: `node_${Date.now()}`,
             type,
             config: {},
-            position: { x: 100, y: nodes.length * 120 + 50 }
+            position: { x: 100, y: nodeSequence.length * 120 + 50 }
         };
-        setNodes([...nodes, newNode]);
+        setNodeSequence([...nodeSequence, newNode]);
     };
 
     const updateNodeConfig = (nodeId, config) => {
-        setNodes(nodes.map(node =>
+        setNodeSequence(nodeSequence.map(node =>
             node.id === nodeId ? { ...node, config } : node
         ));
     };
 
     const deleteNode = (nodeId) => {
-        setNodes(nodes.filter(n => n.id !== nodeId));
-        setConnections(connections.filter(c => c.from !== nodeId && c.to !== nodeId));
+        setNodeSequence(nodeSequence.filter(n => n.id !== nodeId));
         if (selectedNode?.id === nodeId) setSelectedNode(null);
     };
 
-    const connectNodes = (fromId, toId) => {
-        // Check if connection already exists
-        const exists = connections.some(c => c.from === fromId && c.to === toId);
-        if (exists) {
-            alert('Connection already exists!');
-            return;
-        }
-
-        // Check if it would create a cycle
-        if (fromId === toId) {
-            alert('Cannot connect a node to itself!');
-            return;
-        }
-
-        // Add new connection (allow multiple connections from same node)
-        setConnections([...connections, { from: fromId, to: toId }]);
+    const moveNode = (fromIndex, toIndex) => {
+        const newSequence = [...nodeSequence];
+        const [movedNode] = newSequence.splice(fromIndex, 1);
+        newSequence.splice(toIndex, 0, movedNode);
+        setNodeSequence(newSequence);
     };
 
     const handleNodeDrag = (nodeId, newPosition) => {
-        setNodes(nodes.map(node =>
+        setNodeSequence(nodeSequence.map(node =>
             node.id === nodeId ? { ...node, position: newPosition } : node
         ));
     };
 
     return (
-        <div className="h-screen flex flex-col bg-gray-900 text-white">
-            <div className="flex items-center gap-3 px-5 py-4 bg-gray-800 border-b border-gray-700">
+        <div className="h-screen flex flex-col bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+            <div className="flex items-center gap-3 px-5 py-4 bg-gray-800/80 backdrop-blur-sm border-b border-gray-700/50 shadow-lg">
                 <input
                     type="text"
                     value={workflowName}
                     onChange={(e) => setWorkflowName(e.target.value)}
                     placeholder="Workflow name..."
-                    className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-base focus:outline-none focus:border-blue-500"
+                    className="flex-1 px-4 py-2.5 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 placeholder-gray-400"
                 />
 
                 {workflows.length > 0 && (
@@ -163,11 +148,7 @@ function WorkflowBuilder() {
 
                 <WorkflowControls
                     workflowName={workflowName}
-                    nodes={nodes}
-                    connections={connections}
-                    onExecute={setExecutionResult}
-                    isExecuting={isExecuting}
-                    setIsExecuting={setIsExecuting}
+                    nodeSequence={nodeSequence}
                     currentWorkflowId={currentWorkflowId}
                     setCurrentWorkflowId={setCurrentWorkflowId}
                     onWorkflowSaved={loadWorkflows}
@@ -178,19 +159,20 @@ function WorkflowBuilder() {
                 <NodePalette onAddNode={addNode} />
 
                 <Canvas
-                    nodes={nodes}
-                    connections={connections}
+                    nodeSequence={nodeSequence}
                     selectedNode={selectedNode}
                     onSelectNode={setSelectedNode}
                     onUpdateNode={updateNodeConfig}
                     onDeleteNode={deleteNode}
-                    onConnect={connectNodes}
+                    onMoveNode={moveNode}
                     onNodeDrag={handleNodeDrag}
                 />
 
                 <ExecutionPanel
                     result={executionResult}
                     isExecuting={isExecuting}
+                    onExecute={setExecutionResult}
+                    currentWorkflowId={currentWorkflowId}
                 />
             </div>
         </div>

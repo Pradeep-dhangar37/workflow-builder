@@ -15,8 +15,15 @@ const nodeSchema = new mongoose.Schema({
 });
 
 const workflowSchema = new mongoose.Schema({
-    name: { type: String, required: true },
+    name: {
+        type: String,
+        required: true,
+        unique: true,
+        trim: true
+    },
     description: { type: String },
+    nodeSequence: [nodeSchema],
+    // Keep legacy fields for backward compatibility
     nodes: [nodeSchema],
     connections: [{
         from: String,
@@ -24,6 +31,12 @@ const workflowSchema = new mongoose.Schema({
     }],
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
+});
+
+// Create case-insensitive unique index for workflow names
+workflowSchema.index({ name: 1 }, {
+    unique: true,
+    collation: { locale: 'en', strength: 2 }
 });
 
 export default mongoose.model('Workflow', workflowSchema);

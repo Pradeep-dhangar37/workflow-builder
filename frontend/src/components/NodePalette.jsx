@@ -10,16 +10,19 @@ function NodePalette({ onAddNode }) {
     return (
         <div className="w-52 bg-gray-800 border-r border-gray-700 p-5 overflow-y-auto">
             <h3 className="m-0 mb-4 text-sm uppercase text-gray-400">Node Types</h3>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2">
                 {NODE_TYPES.map(({ type, label, icon, description }) => (
                     <div
                         key={type}
-                        className="flex items-center gap-2.5 px-3 py-3 bg-gray-700 border border-gray-600 rounded-md cursor-pointer transition-all hover:bg-gray-600 hover:border-blue-500 hover:translate-x-1"
+                        className="flex items-center gap-3 px-3 py-3 bg-gray-700 border border-gray-600 rounded cursor-pointer transition-all hover:bg-gray-600 hover:border-blue-500"
                         onClick={() => onAddNode(type)}
                         title={description}
                     >
                         <span className="text-xl">{icon}</span>
-                        <span className="text-sm font-medium">{label}</span>
+                        <div>
+                            <span className="text-sm font-medium text-white">{label}</span>
+                            <div className="text-xs text-gray-400">{description}</div>
+                        </div>
                     </div>
                 ))}
             </div>

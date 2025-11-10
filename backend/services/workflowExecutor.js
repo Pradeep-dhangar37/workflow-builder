@@ -35,42 +35,40 @@ export async function executeWorkflow({ workflowId, inputText, file, sessionId }
     const results = {};
     let currentData = null;
 
-    // Sort nodes by connections (simple linear flow)
-    const sortedNodes = sortNodesByConnections(workflow.nodes, workflow.connections);
-
-    for (const node of sortedNodes) {
-        console.log(`Executing node: ${node.type} (${node.id})`);
-        console.log('Current data before execution:', currentData);
+    // Execute nodes in sequential order (no sorting needed!)
+    for (let i = 0; i < workflow.nodeSequence.length; i++) {
+        const node = workflow.nodeSequence[i];
+        console.log(`Executing node ${i + 1}/${workflow.nodeSequence.length}: ${node.type} (${node.id})`);
+        console.log(`\n=== Executing ${node.type.toUpperCase()} Node (${node.id}) ===`);
+        console.log('Input data:', JSON.stringify(currentData, null, 2));
 
         switch (node.type) {
             case 'input':
                 currentData = await executeInputNode(node, inputText, file);
-                console.log('Input node output:', currentData);
                 break;
 
             case 'store':
                 currentData = await executeStoreNode(node, currentData);
-                console.log('Store node output:', currentData);
                 break;
 
             case 'rag':
                 currentData = await executeRAGNode(node, currentData, sessionId);
-                console.log('RAG node output:', currentData);
                 break;
 
             case 'memory':
                 currentData = await executeMemoryNode(node, currentData, sessionId);
-                console.log('Memory node output:', currentData);
                 break;
 
             case 'output':
                 currentData = await executeOutputNode(node, currentData);
-                console.log('Output node output:', currentData);
                 break;
 
             default:
                 throw new Error(`Unknown node type: ${node.type}`);
         }
+
+        console.log('Output data:', JSON.stringify(currentData, null, 2));
+        console.log('=== Node execution completed ===\n');
 
         results[node.id] = currentData;
     }
@@ -83,13 +81,23 @@ export async function executeWorkflow({ workflowId, inputText, file, sessionId }
 }
 
 async function executeInputNode(node, inputText, file) {
+    console.log('ExecuteInputNode called with:', { hasFile: !!file, hasInputText: !!inputText });
+
     if (file) {
-        const content = await fs.readFile(file.path, 'utf-8');
-        await fs.unlink(file.path); // Clean up uploaded file
-        return { text: content, source: file.originalname };
+        try {
+            console.log('Processing file:', file);
+            const content = await fs.readFile(file.path, 'utf-8');
+            await fs.unlink(file.path); // Clean up uploaded file
+            console.log('File processed successfully, content length:', content.length);
+            return { text: content, source: file.originalname };
+        } catch (error) {
+            console.error('Error processing file:', error);
+            throw new Error(`Failed to process file: ${error.message}`);
+        }
     }
 
     if (inputText) {
+        console.log('Processing input text, length:', inputText.length);
         return { text: inputText, source: 'user_input' };
     }
 
@@ -152,60 +160,46 @@ async function executeStoreNode(node, inputData) {
         knowledgeBase: knowledgeBaseName,
         chunksAdded: newChunks.length,
         totalChunks: kb.chunks.length,
-        message: `Successfully stored ${newChunks.length} chunks in "${knowledgeBaseName}"`
+        message: `Successfully stored ${newChunks.length} chunks in "${knowledgeBaseName}"`,
+        // Pass through the original text for the next node
+        text: text,
+        source: source
     };
 }
 
-function sortNodesByConnections(nodes, connections) {
-    console.log('Sorting nodes:', nodes.map(n => ({ id: n.id, type: n.type })));
-    console.log('Connections:', connections);
 
-    const nodeMap = new Map(nodes.map(n => [n.id, n]));
-    const sorted = [];
-    const visited = new Set();
-
-    // Find the starting node (node with no incoming connections)
-    const hasIncoming = new Set(connections.map(c => c.to));
-    console.log('Nodes with incoming connections:', Array.from(hasIncoming));
-
-    const startNode = nodes.find(n => !hasIncoming.has(n.id));
-    console.log('Start node:', startNode ? { id: startNode.id, type: startNode.type } : 'NONE');
-
-    if (!startNode) {
-        // If no connections, just return nodes in order (input first)
-        if (connections.length === 0) {
-            return nodes.sort((a, b) => {
-                const order = { input: 0, store: 1, rag: 2, memory: 3, output: 4 };
-                return (order[a.type] || 99) - (order[b.type] || 99);
-            });
-        }
-        throw new Error('No starting node found in workflow');
-    }
-
-    // Simple traversal
-    let current = startNode;
-    while (current && !visited.has(current.id)) {
-        sorted.push(current);
-        visited.add(current.id);
-
-        const nextConnection = connections.find(c => c.from === current.id);
-        current = nextConnection ? nodeMap.get(nextConnection.to) : null;
-    }
-
-    console.log('Sorted nodes:', sorted.map(n => ({ id: n.id, type: n.type })));
-    return sorted;
-}
 
 
 async function executeRAGNode(node, inputData, sessionId) {
     console.log('RAG node received data:', inputData);
     console.log('RAG node config:', node.config);
 
-    if (!inputData || !inputData.text) {
-        throw new Error('RAG node requires text input (question)');
+    if (!inputData) {
+        throw new Error('RAG node requires input data');
     }
 
-    const { text: question } = inputData;
+    // Handle different input formats
+    let question;
+    if (inputData.text) {
+        question = inputData.text;
+    } else if (typeof inputData === 'string') {
+        question = inputData;
+    } else if (inputData.message) {
+        question = inputData.message;
+    } else if (inputData.success && inputData.text) {
+        // Data from Store node - use the original text as question
+        question = inputData.text;
+    } else if (inputData.success && inputData.knowledgeBase) {
+        // Store node output without text - skip RAG and pass through
+        console.log('RAG node: Received store output without text, passing through...');
+        return {
+            ...inputData,
+            message: 'Documents stored successfully. RAG node skipped - no question provided.',
+            source: 'rag_skipped'
+        };
+    } else {
+        throw new Error('RAG node requires text input (question). Received: ' + JSON.stringify(inputData));
+    }
     const { knowledgeBaseName, aiProvider, model, apiKey } = node.config;
 
     if (!knowledgeBaseName) {
@@ -272,10 +266,16 @@ async function executeRAGNode(node, inputData, sessionId) {
     // 2. Generate answer using LLM or simple text assembly
     let answer;
     if (apiKey && aiProvider) {
-        // Use LLM (OpenAI example)
-        answer = await generateAnswerWithLLM(question, relevantChunks, aiProvider, model, apiKey);
+        console.log(`Using ${aiProvider} API with model: ${model || 'default'}`);
+        try {
+            answer = await generateAnswerWithLLM(question, relevantChunks, aiProvider, model, apiKey);
+            console.log('LLM response generated successfully');
+        } catch (error) {
+            console.error('LLM generation failed:', error);
+            answer = `Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+        }
     } else {
-        // Simple text assembly fallback
+        console.log('No API key or provider configured, using simple text assembly');
         answer = `Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
     }
 
@@ -288,31 +288,121 @@ async function executeRAGNode(node, inputData, sessionId) {
 }
 
 async function generateAnswerWithLLM(question, chunks, provider, model, apiKey) {
-    if (provider === 'openai') {
-        const OpenAI = (await import('openai')).default;
-        const openai = new OpenAI({ apiKey });
+    const context = chunks.map(c => c.content).join('\n\n');
+    const prompt = `Answer the following question based on the provided context:\n\nContext:\n${context}\n\nQuestion: ${question}\n\nAnswer:`;
 
-        const context = chunks.map(c => c.content).join('\n\n');
-        const prompt = `Answer the following question based on the provided context:\n\nContext:\n${context}\n\nQuestion: ${question}\n\nAnswer:`;
+    try {
+        if (provider === 'openai') {
+            const OpenAI = (await import('openai')).default;
+            const openai = new OpenAI({ apiKey });
 
-        const response = await openai.chat.completions.create({
-            model: model || 'gpt-3.5-turbo',
-            messages: [{ role: 'user', content: prompt }],
-            max_tokens: 500
-        });
+            const response = await openai.chat.completions.create({
+                model: model || 'gpt-3.5-turbo',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 500
+            });
 
-        return response.choices[0].message.content;
+            return response.choices[0].message.content;
+        }
+
+        if (provider === 'google') {
+            // Use Google Gemini API
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-pro'}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: prompt
+                        }]
+                    }],
+                    generationConfig: {
+                        maxOutputTokens: 500,
+                        temperature: 0.7
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                return data.candidates[0].content.parts[0].text;
+            } else {
+                throw new Error('Invalid response format from Gemini API');
+            }
+        }
+
+        if (provider === 'anthropic') {
+            // Use Anthropic Claude API
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    model: model || 'claude-3-sonnet-20240229',
+                    max_tokens: 500,
+                    messages: [{
+                        role: 'user',
+                        content: prompt
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Claude API error: ${errorData.error?.message || response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.content[0].text;
+        }
+
+        // Fallback for unsupported providers
+        return `Answer based on context: ${chunks[0].content.substring(0, 200)}...`;
+
+    } catch (error) {
+        console.error(`LLM API Error (${provider}):`, error);
+        // Return fallback answer on API error
+        return `Based on the available information: ${context.substring(0, 300)}...`;
     }
-
-    // Fallback for other providers
-    return `Answer based on context: ${chunks[0].content.substring(0, 200)}...`;
 }
 
 async function executeMemoryNode(node, inputData, sessionId) {
     console.log('Memory node received data:', inputData);
 
-    if (!inputData || !inputData.question || !inputData.answer) {
-        throw new Error('Memory node requires question and answer from RAG node');
+    if (!inputData) {
+        throw new Error('Memory node requires input data');
+    }
+
+    // Handle different input formats
+    if (inputData.question && inputData.answer) {
+        // Standard RAG output
+        const { question, answer } = inputData;
+    } else if (inputData.success && inputData.knowledgeBase) {
+        // Store node output - skip memory and pass through
+        console.log('Memory node: Received store output, passing through...');
+        return {
+            ...inputData,
+            message: inputData.message + ' Memory node skipped - no conversation to store.',
+            source: 'memory_skipped'
+        };
+    } else {
+        // Pass through other data types
+        console.log('Memory node: No question/answer found, passing through data...');
+        return {
+            ...inputData,
+            source: 'memory_passthrough'
+        };
     }
 
     const { question, answer } = inputData;

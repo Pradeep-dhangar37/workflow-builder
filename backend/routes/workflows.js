@@ -29,7 +29,25 @@ router.get('/:id', async (req, res) => {
 // Create new workflow
 router.post('/', async (req, res) => {
     try {
-        const workflow = new Workflow(req.body);
+        const { name } = req.body;
+
+        // Check if workflow name already exists
+        if (name) {
+            const existingWorkflow = await Workflow.findOne({
+                name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+            });
+
+            if (existingWorkflow) {
+                return res.status(400).json({
+                    error: `A workflow with the name "${name}" already exists. Please choose a different name.`
+                });
+            }
+        }
+
+        const workflow = new Workflow({
+            ...req.body,
+            name: name ? name.trim() : req.body.name
+        });
         await workflow.save();
         res.status(201).json(workflow);
     } catch (error) {
@@ -40,9 +58,29 @@ router.post('/', async (req, res) => {
 // Update workflow
 router.put('/:id', async (req, res) => {
     try {
+        const { name } = req.body;
+
+        // Check if workflow name already exists (excluding current workflow)
+        if (name) {
+            const existingWorkflow = await Workflow.findOne({
+                _id: { $ne: req.params.id },
+                name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+            });
+
+            if (existingWorkflow) {
+                return res.status(400).json({
+                    error: `A workflow with the name "${name}" already exists. Please choose a different name.`
+                });
+            }
+        }
+
         const workflow = await Workflow.findByIdAndUpdate(
             req.params.id,
-            { ...req.body, updatedAt: Date.now() },
+            {
+                ...req.body,
+                name: name ? name.trim() : req.body.name,
+                updatedAt: Date.now()
+            },
             { new: true }
         );
         if (!workflow) {
