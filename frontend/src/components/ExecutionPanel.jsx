@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from '../config.js';
 
 function ExecutionPanel({ result, isExecuting, onExecute, currentWorkflowId }) {
     const [inputText, setInputText] = useState('');
@@ -26,7 +27,7 @@ function ExecutionPanel({ result, isExecuting, onExecute, currentWorkflowId }) {
                 return;
             }
 
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/executions`, {
+            const response = await fetch(`${API_BASE_URL}/api/executions`, {
                 method: 'POST',
                 body: formData
             });

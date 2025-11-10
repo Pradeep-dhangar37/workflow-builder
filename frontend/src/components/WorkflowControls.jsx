@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from '../config.js';
 
 function WorkflowControls({
     workflowName,
@@ -18,7 +19,7 @@ function WorkflowControls({
 
             // Check for duplicate names (only for new workflows)
             if (!currentWorkflowId) {
-                const existingWorkflowsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`);
+                const existingWorkflowsResponse = await fetch(`${API_BASE_URL}/api/workflows`);
                 const existingWorkflows = await existingWorkflowsResponse.json();
 
                 const duplicateName = existingWorkflows.find(w =>
@@ -39,7 +40,7 @@ function WorkflowControls({
             let response;
             if (currentWorkflowId) {
                 // Update existing workflow - check if name conflicts with other workflows
-                const existingWorkflowsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`);
+                const existingWorkflowsResponse = await fetch(`${API_BASE_URL}/api/workflows`);
                 const existingWorkflows = await existingWorkflowsResponse.json();
 
                 const duplicateName = existingWorkflows.find(w =>
@@ -52,14 +53,14 @@ function WorkflowControls({
                     return;
                 }
 
-                response = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows/${currentWorkflowId}`, {
+                response = await fetch(`${API_BASE_URL}/api/workflows/${currentWorkflowId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(workflow)
                 });
             } else {
                 // Create new workflow
-                response = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`, {
+                response = await fetch(`${API_BASE_URL}/api/workflows`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(workflow)

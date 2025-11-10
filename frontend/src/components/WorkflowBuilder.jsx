@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../config.js';
 import NodePalette from './NodePalette';
 import Canvas from './Canvas';
 import WorkflowControls from './WorkflowControls';
@@ -20,7 +21,7 @@ function WorkflowBuilder() {
 
     const loadWorkflows = async () => {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/workflows`);
+            const response = await fetch(`${API_BASE_URL}/api/workflows`);
             const data = await response.json();
             setWorkflows(data);
         } catch (error) {
@@ -53,7 +54,7 @@ function WorkflowBuilder() {
         }
 
         try {
-            await fetch(`http://localhost:3001/api/workflows/${currentWorkflowId}`, {
+            await fetch(`${process.env.REACT_APP_API_URL}/api/workflows/${currentWorkflowId}`, {
                 method: 'DELETE'
             });
 

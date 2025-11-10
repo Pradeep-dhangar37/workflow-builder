@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../config.js';
 
 function NodeConfig({ node, onClose, onSave }) {
     const [config, setConfig] = useState(node.config || {});
@@ -12,7 +13,7 @@ function NodeConfig({ node, onClose, onSave }) {
 
     const fetchKnowledgeBases = async () => {
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/knowledge-bases`);
+            const response = await fetch(`${API_BASE_URL}/api/knowledge-bases`);
             const data = await response.json();
             setKnowledgeBases(data);
         } catch (error) {
