@@ -21,11 +21,20 @@ function WorkflowBuilder() {
 
     const loadWorkflows = async () => {
         try {
+            console.log('Loading workflows from:', `${API_BASE_URL}/api/workflows`);
             const response = await fetch(`${API_BASE_URL}/api/workflows`);
+            console.log('Response status:', response.status);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
             const data = await response.json();
             setWorkflows(data);
+            console.log('Workflows loaded successfully:', data.length);
         } catch (error) {
             console.error('Failed to load workflows:', error);
+            console.error('API_BASE_URL:', API_BASE_URL);
         }
     };
 
