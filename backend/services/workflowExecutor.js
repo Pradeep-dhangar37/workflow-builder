@@ -161,9 +161,11 @@ async function executeStoreNode(node, inputData) {
         chunksAdded: newChunks.length,
         totalChunks: kb.chunks.length,
         message: `Successfully stored ${newChunks.length} chunks in "${knowledgeBaseName}"`,
-        // Pass through the original text for the next node
+        // Pass through the original text for the next node (useful for mixed workflows)
         text: text,
-        source: source
+        source: source,
+        // Add workflow type indicator
+        workflowType: 'ingestion'
     };
 }
 
@@ -283,7 +285,10 @@ async function executeRAGNode(node, inputData, sessionId) {
         question,
         answer,
         chunks: relevantChunks.map(c => ({ content: c.content, index: c.chunkIndex })),
-        source: 'rag'
+        source: 'rag',
+        knowledgeBase: knowledgeBaseName,
+        // Add workflow type indicator
+        workflowType: 'query'
     };
 }
 

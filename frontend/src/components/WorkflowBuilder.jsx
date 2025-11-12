@@ -52,6 +52,66 @@ function WorkflowBuilder() {
         setExecutionResult(null);
     };
 
+    const createIngestionWorkflow = () => {
+        const ingestionNodes = [
+            {
+                id: `input_${Date.now()}`,
+                type: 'input',
+                config: {},
+                position: { x: 100, y: 50 }
+            },
+            {
+                id: `store_${Date.now()}`,
+                type: 'store',
+                config: {},
+                position: { x: 100, y: 200 }
+            },
+            {
+                id: `output_${Date.now()}`,
+                type: 'output',
+                config: { format: 'summary', title: 'Ingestion Results' },
+                position: { x: 100, y: 350 }
+            }
+        ];
+        setNodeSequence(ingestionNodes);
+        setWorkflowName('Document Ingestion Workflow');
+        setCurrentWorkflowId(null);
+        setExecutionResult(null);
+    };
+
+    const createQueryWorkflow = () => {
+        const queryNodes = [
+            {
+                id: `input_${Date.now()}`,
+                type: 'input',
+                config: {},
+                position: { x: 100, y: 50 }
+            },
+            {
+                id: `rag_${Date.now()}`,
+                type: 'rag',
+                config: {},
+                position: { x: 100, y: 200 }
+            },
+            {
+                id: `memory_${Date.now()}`,
+                type: 'memory',
+                config: {},
+                position: { x: 100, y: 350 }
+            },
+            {
+                id: `output_${Date.now()}`,
+                type: 'output',
+                config: { format: 'detailed', title: 'Query Results' },
+                position: { x: 100, y: 500 }
+            }
+        ];
+        setNodeSequence(queryNodes);
+        setWorkflowName('Question Answering Workflow');
+        setCurrentWorkflowId(null);
+        setExecutionResult(null);
+    };
+
     const deleteWorkflow = async () => {
         if (!currentWorkflowId) {
             alert('No workflow selected to delete');
@@ -165,13 +225,40 @@ function WorkflowBuilder() {
                     </button>
                 )}
 
-                <WorkflowControls
-                    workflowName={workflowName}
-                    nodeSequence={nodeSequence}
-                    currentWorkflowId={currentWorkflowId}
-                    setCurrentWorkflowId={setCurrentWorkflowId}
-                    onWorkflowSaved={loadWorkflows}
-                />
+                <div className="flex items-center gap-3">
+                    <WorkflowControls
+                        workflowName={workflowName}
+                        nodeSequence={nodeSequence}
+                        currentWorkflowId={currentWorkflowId}
+                        setCurrentWorkflowId={setCurrentWorkflowId}
+                        onWorkflowSaved={loadWorkflows}
+                    />
+
+                    {/* Workflow Templates */}
+                    <div className="flex gap-2 border-l border-gray-600 pl-3">
+                        <button
+                            className="px-4 py-2 bg-green-600 hover:bg-green-700 border-none rounded text-white text-sm cursor-pointer transition-colors"
+                            onClick={createIngestionWorkflow}
+                            title="Create Input → Store workflow for document ingestion"
+                        >
+                            📥 Ingestion Template
+                        </button>
+                        <button
+                            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 border-none rounded text-white text-sm cursor-pointer transition-colors"
+                            onClick={createQueryWorkflow}
+                            title="Create Input → RAG → Memory → Output workflow for Q&A"
+                        >
+                            🔍 Query Template
+                        </button>
+                        <button
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-700 border-none rounded text-white text-sm cursor-pointer transition-colors"
+                            onClick={createNewWorkflow}
+                            title="Start with empty workflow"
+                        >
+                            ➕ New Empty
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div className="flex-1 flex overflow-hidden">
