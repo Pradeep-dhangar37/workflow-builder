@@ -173,8 +173,9 @@ async function executeStoreNode(node, inputData) {
 
 
 async function executeRAGNode(node, inputData, sessionId) {
-    console.log('RAG node received data:', inputData);
-    console.log('RAG node config:', node.config);
+    console.log('\n🔍 === RAG NODE EXECUTION START ===');
+    console.log('📥 RAG node received data:', JSON.stringify(inputData, null, 2));
+    console.log('⚙️ RAG node config:', JSON.stringify(node.config, null, 2));
 
     if (!inputData) {
         throw new Error('RAG node requires input data');
@@ -202,17 +203,30 @@ async function executeRAGNode(node, inputData, sessionId) {
     } else {
         throw new Error('RAG node requires text input (question). Received: ' + JSON.stringify(inputData));
     }
-    const { knowledgeBaseName, aiProvider, model, apiKey } = node.config;
+    const { knowledgeBaseName, aiProvider, model, apiKey } = node.config || {};
+
+    console.log('🔧 Configuration extracted:', {
+        knowledgeBaseName: knowledgeBaseName || 'NOT SET',
+        aiProvider: aiProvider || 'NOT SET',
+        model: model || 'NOT SET',
+        hasApiKey: !!apiKey,
+        apiKeyLength: apiKey ? apiKey.length : 0,
+        apiKeyStart: apiKey ? apiKey.substring(0, 10) + '...' : 'NO API KEY'
+    });
 
     if (!knowledgeBaseName) {
-        throw new Error('Knowledge base name is required for RAG node');
+        console.error('❌ ERROR: Knowledge base name is required for RAG node');
+        throw new Error('Knowledge base name is required for RAG node. Please configure the RAG node with a knowledge base name.');
     }
 
     // 1. Retrieve relevant chunks from knowledge base
+    console.log(`🗄️ Searching for knowledge base: "${knowledgeBaseName}"`);
     const kb = await KnowledgeBase.findOne({ name: knowledgeBaseName });
     if (!kb) {
-        throw new Error(`Knowledge base "${knowledgeBaseName}" not found`);
+        console.error(`❌ ERROR: Knowledge base "${knowledgeBaseName}" not found`);
+        throw new Error(`Knowledge base "${knowledgeBaseName}" not found. Please make sure the knowledge base exists or create it first using a Store node.`);
     }
+    console.log(`✅ Knowledge base found with ${kb.chunks.length} chunks`);
 
     // Relevance-based keyword search with scoring
     const query = question.toLowerCase();
@@ -266,35 +280,71 @@ async function executeRAGNode(node, inputData, sessionId) {
     }
 
     // 2. Generate answer using LLM or simple text assembly
-    console.log('RAG Configuration Check:', {
+    console.log('\n🤖 === LLM GENERATION PHASE ===');
+    console.log('🔍 Configuration validation:', {
         hasApiKey: !!apiKey,
         apiKeyLength: apiKey ? apiKey.length : 0,
-        aiProvider: aiProvider,
-        model: model,
-        configReceived: node.config
+        apiKeyValid: apiKey ? (apiKey.startsWith('sk-') ? 'Looks valid (starts with sk-)' : 'Invalid format (should start with sk-)') : 'No API key',
+        aiProvider: aiProvider || 'NOT SET',
+        model: model || 'NOT SET (will use default)',
+        chunksFound: relevantChunks.length
     });
 
     let answer;
-    if (apiKey && aiProvider) {
-        console.log(`✅ Using ${aiProvider} API with model: ${model || 'default'}`);
-        console.log(`API Key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
-        try {
-            answer = await generateAnswerWithLLM(question, relevantChunks, aiProvider, model, apiKey);
-            console.log('✅ LLM response generated successfully');
-        } catch (error) {
-            console.error('❌ LLM generation failed:', error);
-            answer = `⚠️ LLM Error: ${error.message}\n\nFallback - Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
-        }
+
+    // Detailed validation
+    if (!apiKey) {
+        console.log('❌ REASON: No API key provided');
+        console.log('💡 SOLUTION: Configure the RAG node with your OpenAI API key');
+        answer = `⚠️ No API key configured. Using fallback response.\n\nBased on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+    } else if (!aiProvider) {
+        console.log('❌ REASON: No AI provider specified');
+        console.log('💡 SOLUTION: Set AI Provider to "openai" in RAG node configuration');
+        answer = `⚠️ No AI provider configured. Using fallback response.\n\nBased on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+    } else if (!apiKey.startsWith('sk-')) {
+        console.log('❌ REASON: Invalid API key format');
+        console.log('💡 SOLUTION: OpenAI API keys should start with "sk-"');
+        answer = `⚠️ Invalid API key format. Using fallback response.\n\nBased on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
     } else {
-        console.log('❌ No API key or provider configured, using simple text assembly');
-        console.log('Missing:', {
-            apiKey: !apiKey ? 'API Key missing' : 'API Key present',
-            aiProvider: !aiProvider ? 'AI Provider missing' : 'AI Provider present'
-        });
-        answer = `Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+        console.log(`✅ All validations passed! Using ${aiProvider} API`);
+        console.log(`🔑 API Key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
+        console.log(`🎯 Model: ${model || 'gpt-3.5-turbo (default)'}`);
+        console.log(`📝 Question: "${question}"`);
+        console.log(`📚 Using ${relevantChunks.length} chunks for context`);
+
+        try {
+            console.log('🚀 Calling LLM API...');
+            answer = await generateAnswerWithLLM(question, relevantChunks, aiProvider, model, apiKey);
+            console.log('✅ LLM response generated successfully!');
+            console.log(`📤 Response length: ${answer.length} characters`);
+        } catch (error) {
+            console.error('❌ LLM API call failed!');
+            console.error('🔍 Error details:', {
+                name: error.name,
+                message: error.message,
+                code: error.code,
+                status: error.status,
+                stack: error.stack?.split('\n')[0] // First line of stack trace
+            });
+
+            // Specific error handling
+            if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                console.log('💡 LIKELY CAUSE: Invalid API key');
+                answer = `⚠️ API Authentication Error: Invalid API key.\n\nPlease check your OpenAI API key and try again.\n\nFallback - Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+            } else if (error.message.includes('429') || error.message.includes('quota')) {
+                console.log('💡 LIKELY CAUSE: API quota exceeded or rate limit');
+                answer = `⚠️ API Quota Error: Rate limit or quota exceeded.\n\nPlease check your OpenAI account usage.\n\nFallback - Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+            } else if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
+                console.log('💡 LIKELY CAUSE: Network connectivity issue');
+                answer = `⚠️ Network Error: Cannot reach OpenAI API.\n\nPlease check your internet connection.\n\nFallback - Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+            } else {
+                console.log('💡 UNKNOWN ERROR - Full details logged above');
+                answer = `⚠️ LLM Error: ${error.message}\n\nFallback - Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+            }
+        }
     }
 
-    return {
+    const result = {
         question,
         answer,
         chunks: relevantChunks.map(c => ({ content: c.content, index: c.chunkIndex })),
@@ -303,37 +353,83 @@ async function executeRAGNode(node, inputData, sessionId) {
         // Add workflow type indicator
         workflowType: 'query'
     };
+
+    console.log('\n📋 === RAG NODE EXECUTION SUMMARY ===');
+    console.log('✅ RAG node completed successfully');
+    console.log('📊 Final result:', {
+        questionLength: question.length,
+        answerLength: answer.length,
+        chunksReturned: result.chunks.length,
+        knowledgeBase: knowledgeBaseName,
+        usedLLM: !!(apiKey && aiProvider && !answer.includes('⚠️'))
+    });
+    console.log('🔍 === RAG NODE EXECUTION END ===\n');
+
+    return result;
 }
 
 async function generateAnswerWithLLM(question, chunks, provider, model, apiKey) {
+    console.log('\n🔧 === LLM API CALL DETAILS ===');
+
     const context = chunks.map(c => c.content).join('\n\n');
     const prompt = `Answer the following question based on the provided context:\n\nContext:\n${context}\n\nQuestion: ${question}\n\nAnswer:`;
 
+    console.log('📋 Prompt details:', {
+        contextLength: context.length,
+        promptLength: prompt.length,
+        chunksUsed: chunks.length,
+        questionLength: question.length
+    });
+
     try {
         if (provider === 'openai') {
-            console.log('🤖 Initializing OpenAI with key:', apiKey.substring(0, 10) + '...');
-            const OpenAI = (await import('openai')).default;
-            const openai = new OpenAI({ apiKey });
-
-            console.log('📤 Sending request to OpenAI:', {
-                model: model || 'gpt-3.5-turbo',
-                promptLength: prompt.length,
-                maxTokens: 500
+            console.log('🤖 Initializing OpenAI client...');
+            console.log('🔑 API Key validation:', {
+                keyStart: apiKey.substring(0, 10),
+                keyEnd: apiKey.substring(apiKey.length - 4),
+                keyLength: apiKey.length,
+                startsWithSk: apiKey.startsWith('sk-'),
+                hasProj: apiKey.includes('proj')
             });
 
+            const OpenAI = (await import('openai')).default;
+            const openai = new OpenAI({
+                apiKey: apiKey.trim() // Remove any whitespace
+            });
+
+            const requestModel = model || 'gpt-3.5-turbo';
+            console.log('📤 Sending request to OpenAI API...');
+            console.log('🎯 Request parameters:', {
+                model: requestModel,
+                promptLength: prompt.length,
+                maxTokens: 500,
+                temperature: 0.7,
+                messagesCount: 1
+            });
+
+            const startTime = Date.now();
             const response = await openai.chat.completions.create({
-                model: model || 'gpt-3.5-turbo',
+                model: requestModel,
                 messages: [{ role: 'user', content: prompt }],
                 max_tokens: 500,
                 temperature: 0.7
             });
+            const endTime = Date.now();
 
-            console.log('📥 OpenAI response received:', {
-                choices: response.choices.length,
-                usage: response.usage
+            console.log('📥 OpenAI response received successfully!');
+            console.log('⏱️ Response time:', `${endTime - startTime}ms`);
+            console.log('📊 Response details:', {
+                choices: response.choices?.length || 0,
+                finishReason: response.choices?.[0]?.finish_reason,
+                usage: response.usage,
+                model: response.model,
+                responseLength: response.choices?.[0]?.message?.content?.length || 0
             });
 
-            return response.choices[0].message.content;
+            const generatedAnswer = response.choices[0].message.content;
+            console.log('✅ Generated answer preview:', generatedAnswer.substring(0, 100) + '...');
+
+            return generatedAnswer;
         }
 
         if (provider === 'google') {
