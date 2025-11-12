@@ -350,8 +350,16 @@ async function executeRAGNode(node, inputData, sessionId) {
         chunks: relevantChunks.map(c => ({ content: c.content, index: c.chunkIndex })),
         source: 'rag',
         knowledgeBase: knowledgeBaseName,
-        // Add workflow type indicator
-        workflowType: 'query'
+        workflowType: 'query',
+        // Add error information for frontend alerts
+        llmStatus: {
+            used: !!(apiKey && aiProvider && !answer.includes('⚠️')),
+            error: answer.includes('⚠️') ? answer.split('\n')[0] : null,
+            provider: aiProvider || 'none',
+            model: model || 'default',
+            hasApiKey: !!apiKey,
+            apiKeyValid: apiKey ? apiKey.startsWith('sk-') : false
+        }
     };
 
     console.log('\n📋 === RAG NODE EXECUTION SUMMARY ===');

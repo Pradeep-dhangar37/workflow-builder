@@ -279,6 +279,7 @@ function WorkflowBuilder() {
                     isExecuting={isExecuting}
                     onExecute={setExecutionResult}
                     currentWorkflowId={currentWorkflowId}
+                    nodeSequence={nodeSequence}
                 />
             </div>
         </div>

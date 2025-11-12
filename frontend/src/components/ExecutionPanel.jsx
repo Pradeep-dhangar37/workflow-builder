@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { API_BASE_URL } from '../config.js';
 
-function ExecutionPanel({ result, isExecuting, onExecute, currentWorkflowId }) {
+function ExecutionPanel({ result, isExecuting, onExecute, currentWorkflowId, nodeSequence }) {
     const [inputText, setInputText] = useState('');
     const [file, setFile] = useState(null);
     const [isExecutingLocal, setIsExecutingLocal] = useState(false);
@@ -12,6 +12,15 @@ function ExecutionPanel({ result, isExecuting, onExecute, currentWorkflowId }) {
             return;
         }
 
+        console.log('🚀 Starting execution...');
+        console.log('📋 Execution details:', {
+            workflowId: currentWorkflowId,
+            hasFile: !!file,
+            hasInputText: !!inputText,
+            inputTextLength: inputText?.length || 0,
+            apiBaseUrl: API_BASE_URL
+        });
+
         setIsExecutingLocal(true);
         try {
             const formData = new FormData();
@@ -19,23 +28,80 @@ function ExecutionPanel({ result, isExecuting, onExecute, currentWorkflowId }) {
 
             if (file) {
                 formData.append('file', file);
+                console.log('📎 Uploading file:', file.name);
             } else if (inputText) {
                 formData.append('inputText', inputText);
+                console.log('📝 Sending text input:', inputText.substring(0, 50) + '...');
             } else {
                 alert('Please provide input text or file');
                 setIsExecutingLocal(false);
                 return;
             }
 
+            console.log('📤 Sending request to:', `${API_BASE_URL}/api/executions`);
             const response = await fetch(`${API_BASE_URL}/api/executions`, {
                 method: 'POST',
                 body: formData
+            });
+
+            console.log('📥 Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok
             });
 
             const result = await response.json();
 
             if (!response.ok) {
                 throw new Error(result.error || 'Execution failed');
+            }
+
+            // Check for LLM errors and show user-friendly alerts
+            if (result.finalOutput?.llmStatus) {
+                const llmStatus = result.finalOutput.llmStatus;
+
+                if (!llmStatus.used && llmStatus.error) {
+                    // Show specific error alert
+                    if (llmStatus.error.includes('No API key')) {
+                        alert('⚠️ ChatGPT Not Used: No API key configured\n\nPlease configure your OpenAI API key in the RAG node settings.');
+                    } else if (llmStatus.error.includes('No AI provider')) {
+                        alert('⚠️ ChatGPT Not Used: No AI provider selected\n\nPlease set AI Provider to "openai" in the RAG node configuration.');
+                    } else if (llmStatus.error.includes('Invalid API key format')) {
+                        alert('⚠️ ChatGPT Not Used: Invalid API key format\n\nOpenAI API keys should start with "sk-". Please check your API key.');
+                    } else if (llmStatus.error.includes('Authentication Error')) {
+                        alert('⚠️ ChatGPT Error: Invalid API key\n\nYour API key is not valid or has been revoked. Please check your OpenAI account.');
+                    } else if (llmStatus.error.includes('Quota Error')) {
+                        alert('⚠️ ChatGPT Error: API quota exceeded\n\nYou have exceeded your OpenAI API usage limit. Please check your account billing.');
+                    } else if (llmStatus.error.includes('Network Error')) {
+                        alert('⚠️ ChatGPT Error: Network connection failed\n\nCannot reach OpenAI servers. Please check your internet connection.');
+                    } else {
+                        alert(`⚠️ ChatGPT Error: ${llmStatus.error}\n\nUsing fallback response instead.`);
+                    }
+                } else if (llmStatus.used) {
+                    // Success message (optional - you can remove this if too noisy)
+                    console.log('✅ ChatGPT successfully generated response using', llmStatus.provider, llmStatus.model);
+                }
+            }
+
+            // Check for LLM errors and show user-friendly alerts
+            if (result.finalOutput?.llmStatus && !result.finalOutput.llmStatus.used) {
+                const llmStatus = result.finalOutput.llmStatus;
+
+                if (llmStatus.error?.includes('No API key')) {
+                    alert('⚠️ ChatGPT Not Used: No API key configured\n\nPlease configure your OpenAI API key in the RAG node settings.');
+                } else if (llmStatus.error?.includes('No AI provider')) {
+                    alert('⚠️ ChatGPT Not Used: No AI provider selected\n\nPlease set AI Provider to "openai" in the RAG node configuration.');
+                } else if (llmStatus.error?.includes('Invalid API key format')) {
+                    alert('⚠️ ChatGPT Not Used: Invalid API key format\n\nOpenAI API keys should start with "sk-". Please check your API key.');
+                } else if (llmStatus.error?.includes('Authentication Error')) {
+                    alert('⚠️ ChatGPT Error: Invalid API key\n\nYour API key is not valid or has been revoked. Please check your OpenAI account.');
+                } else if (llmStatus.error?.includes('Quota Error')) {
+                    alert('⚠️ ChatGPT Error: API quota exceeded\n\nYou have exceeded your OpenAI API usage limit. Please check your account billing.');
+                } else if (llmStatus.error?.includes('Network Error')) {
+                    alert('⚠️ ChatGPT Error: Network connection failed\n\nCannot reach OpenAI servers. Please check your internet connection.');
+                } else if (llmStatus.error) {
+                    alert(`⚠️ ChatGPT Error: ${llmStatus.error}\n\nUsing fallback response instead.`);
+                }
             }
 
             onExecute(result);
@@ -122,7 +188,7 @@ function ExecutionPanel({ result, isExecuting, onExecute, currentWorkflowId }) {
                     </div>
                 )}
 
-                {/* Temporary debug info */}
+                {/* Debug info */}
                 {result && (
                     <details className="mb-4 p-2 bg-gray-800 rounded text-xs">
                         <summary className="cursor-pointer text-gray-400">🔍 Debug: Result Structure</summary>
@@ -131,6 +197,23 @@ function ExecutionPanel({ result, isExecuting, onExecute, currentWorkflowId }) {
                         </pre>
                     </details>
                 )}
+
+                {/* Workflow Debug Info */}
+                <details className="mb-4 p-2 bg-gray-800 rounded text-xs">
+                    <summary className="cursor-pointer text-gray-400">⚙️ Debug: Current Workflow Config</summary>
+                    <div className="mt-2 text-gray-300">
+                        <div><strong>Workflow ID:</strong> {currentWorkflowId || 'Not saved'}</div>
+                        <div><strong>API Base URL:</strong> {API_BASE_URL}</div>
+                        <div className="mt-2"><strong>Nodes Configuration:</strong></div>
+                        <pre className="text-xs overflow-auto">
+                            {JSON.stringify(nodeSequence?.map(node => ({
+                                id: node.id,
+                                type: node.type,
+                                config: node.config
+                            })), null, 2)}
+                        </pre>
+                    </div>
+                </details>
 
                 {result?.error && (
                     <div className="p-4 rounded-md text-sm bg-red-900/30 border border-red-800">
