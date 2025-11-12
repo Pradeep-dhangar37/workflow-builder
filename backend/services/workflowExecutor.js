@@ -266,18 +266,31 @@ async function executeRAGNode(node, inputData, sessionId) {
     }
 
     // 2. Generate answer using LLM or simple text assembly
+    console.log('RAG Configuration Check:', {
+        hasApiKey: !!apiKey,
+        apiKeyLength: apiKey ? apiKey.length : 0,
+        aiProvider: aiProvider,
+        model: model,
+        configReceived: node.config
+    });
+
     let answer;
     if (apiKey && aiProvider) {
-        console.log(`Using ${aiProvider} API with model: ${model || 'default'}`);
+        console.log(`✅ Using ${aiProvider} API with model: ${model || 'default'}`);
+        console.log(`API Key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
         try {
             answer = await generateAnswerWithLLM(question, relevantChunks, aiProvider, model, apiKey);
-            console.log('LLM response generated successfully');
+            console.log('✅ LLM response generated successfully');
         } catch (error) {
-            console.error('LLM generation failed:', error);
-            answer = `Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+            console.error('❌ LLM generation failed:', error);
+            answer = `⚠️ LLM Error: ${error.message}\n\nFallback - Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
         }
     } else {
-        console.log('No API key or provider configured, using simple text assembly');
+        console.log('❌ No API key or provider configured, using simple text assembly');
+        console.log('Missing:', {
+            apiKey: !apiKey ? 'API Key missing' : 'API Key present',
+            aiProvider: !aiProvider ? 'AI Provider missing' : 'AI Provider present'
+        });
         answer = `Based on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
     }
 
@@ -298,13 +311,26 @@ async function generateAnswerWithLLM(question, chunks, provider, model, apiKey) 
 
     try {
         if (provider === 'openai') {
+            console.log('🤖 Initializing OpenAI with key:', apiKey.substring(0, 10) + '...');
             const OpenAI = (await import('openai')).default;
             const openai = new OpenAI({ apiKey });
+
+            console.log('📤 Sending request to OpenAI:', {
+                model: model || 'gpt-3.5-turbo',
+                promptLength: prompt.length,
+                maxTokens: 500
+            });
 
             const response = await openai.chat.completions.create({
                 model: model || 'gpt-3.5-turbo',
                 messages: [{ role: 'user', content: prompt }],
-                max_tokens: 500
+                max_tokens: 500,
+                temperature: 0.7
+            });
+
+            console.log('📥 OpenAI response received:', {
+                choices: response.choices.length,
+                usage: response.usage
             });
 
             return response.choices[0].message.content;
