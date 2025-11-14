@@ -41,8 +41,13 @@ const corsOptions = {
     optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 };
 
-// Middleware
-app.use(cors(corsOptions));
+// Middleware - Temporarily allow all origins for debugging
+app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 // Log requests for debugging
 app.use((req, res, next) => {

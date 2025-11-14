@@ -26,6 +26,37 @@ function chunkText(text, minWords = 200, maxWords = 300) {
     return chunks;
 }
 
+// Calculate similarity between two strings (0-1, where 1 is identical)
+function calculateSimilarity(str1, str2) {
+    const words1 = str1.toLowerCase().split(/\s+/);
+    const words2 = str2.toLowerCase().split(/\s+/);
+
+    const set1 = new Set(words1);
+    const set2 = new Set(words2);
+
+    const intersection = new Set([...set1].filter(x => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+
+    return intersection.size / union.size;
+}
+
+// Validate API key format based on provider
+function validateApiKey(apiKey, provider) {
+    if (!apiKey) return false;
+
+    switch (provider) {
+        case 'openai':
+            return apiKey.startsWith('sk-');
+        case 'google':
+            return apiKey.startsWith('AIza');
+        case 'anthropic':
+            return apiKey.startsWith('sk-ant-');
+        default:
+            // For unknown providers, just check if key exists and has reasonable length
+            return apiKey.length > 10;
+    }
+}
+
 export async function executeWorkflow({ workflowId, inputText, file, sessionId }) {
     const workflow = await Workflow.findById(workflowId);
     if (!workflow) {
@@ -121,6 +152,27 @@ async function executeStoreNode(node, inputData) {
         throw new Error('Knowledge base name is required for Store node. Please configure the Store node with a KB name.');
     }
 
+    // Check if this looks like a question rather than content to store
+    const isQuestion = /^(what|who|when|where|why|how|is|are|can|could|would|should|do|does|did|will)\s/i.test(text.trim()) ||
+        text.trim().endsWith('?');
+
+    if (isQuestion && text.trim().length < 100) {
+        console.log('⚠️ Detected short question, skipping storage to avoid false matches in RAG');
+        return {
+            success: true,
+            knowledgeBase: knowledgeBaseName,
+            chunksAdded: 0,
+            totalChunks: 'unchanged',
+            message: `Skipped storing question "${text}" to prevent false matches in search`,
+            // Pass through the original text for the next node
+            text: text,
+            source: source,
+            workflowType: 'ingestion',
+            skipped: true,
+            reason: 'question_detected'
+        };
+    }
+
     // Find or create knowledge base
     let kb = await KnowledgeBase.findOne({ name: knowledgeBaseName });
 
@@ -147,7 +199,8 @@ async function executeStoreNode(node, inputData) {
         sourceReference: source,
         metadata: {
             addedAt: new Date(),
-            wordCount: content.split(/\s+/).length
+            wordCount: content.split(/\s+/).length,
+            contentType: isQuestion ? 'question' : 'document'
         }
     }));
 
@@ -228,63 +281,204 @@ async function executeRAGNode(node, inputData, sessionId) {
     }
     console.log(`✅ Knowledge base found with ${kb.chunks.length} chunks`);
 
-    // Relevance-based keyword search with scoring
+    // Improved relevance-based keyword search with better scoring
     const query = question.toLowerCase();
 
     // Extract meaningful keywords (remove common stop words)
-    const stopWords = ['what', 'is', 'are', 'the', 'a', 'an', 'how', 'why', 'when', 'where', 'who', 'which', 'can', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'about', 'tell', 'me', 'explain'];
+    const stopWords = ['what', 'is', 'are', 'the', 'a', 'an', 'how', 'why', 'when', 'where', 'who', 'which', 'can', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'about', 'tell', 'me', 'explain', 'please', 'help', 'find', 'show', 'give'];
     const keywords = query
         .split(/\s+/)
         .filter(word => word.length > 2 && !stopWords.includes(word));
 
-    console.log('Search keywords:', keywords);
+    console.log('🔍 Search keywords extracted:', keywords);
 
-    // Score each chunk based on keyword matches
+    if (keywords.length === 0) {
+        console.log('❌ No meaningful keywords found in question');
+        return {
+            question,
+            answer: 'Please provide a more specific question with meaningful keywords.',
+            chunks: [],
+            source: 'no_keywords',
+            llmStatus: {
+                used: false,
+                error: 'No meaningful keywords in question',
+                provider: aiProvider || 'none',
+                model: model || 'default',
+                hasApiKey: !!apiKey,
+                apiKeyValid: validateApiKey(apiKey, aiProvider)
+            }
+        };
+    }
+
+    // Score each chunk based on keyword matches with improved algorithm
     const scoredChunks = kb.chunks.map(chunk => {
         const content = chunk.content.toLowerCase();
         let score = 0;
+        let keywordMatches = 0;
+
+        // Skip chunks that are questions themselves to avoid self-matches
+        const isQuestionChunk = /^(what|who|when|where|why|how|is|are|can|could|would|should|do|does|did|will)\s/i.test(content.trim()) ||
+            content.trim().endsWith('?');
+
+        // Skip very short chunks that are likely questions
+        const isTooShort = content.trim().length < 50;
+
+        // Skip chunks that are too similar to the current question
+        const similarity = calculateSimilarity(question.toLowerCase(), content);
+        const isTooSimilar = similarity > 0.8;
+
+        if (isQuestionChunk || isTooShort || isTooSimilar) {
+            console.log(`⏭️ Skipping chunk ${chunk.chunkIndex}: ${isQuestionChunk ? 'question' : isTooShort ? 'too short' : 'too similar'} - "${content.substring(0, 50)}..."`);
+            return {
+                chunk,
+                score: 0,
+                keywordMatches: 0,
+                relevanceThreshold: 0,
+                isRelevant: false,
+                skipReason: isQuestionChunk ? 'question' : isTooShort ? 'too_short' : 'too_similar'
+            };
+        }
 
         keywords.forEach(keyword => {
-            // Count occurrences of each keyword
-            const regex = new RegExp(keyword, 'gi');
-            const matches = (content.match(regex) || []).length;
+            // Count exact word matches (not partial)
+            const wordRegex = new RegExp(`\\b${keyword}\\b`, 'gi');
+            const exactMatches = (content.match(wordRegex) || []).length;
 
-            // Weight: more matches = higher score
-            score += matches * 10;
+            if (exactMatches > 0) {
+                keywordMatches++;
+                // Weight: more matches = higher score
+                score += exactMatches * 15;
 
-            // Bonus: keyword appears in first 100 characters (likely more relevant)
-            if (content.substring(0, 100).includes(keyword)) {
-                score += 5;
+                // Bonus: keyword appears in first 100 characters (likely more relevant)
+                if (content.substring(0, 100).includes(keyword)) {
+                    score += 10;
+                }
+
+                // Bonus: keyword appears in title-like position (first 50 chars)
+                if (content.substring(0, 50).includes(keyword)) {
+                    score += 5;
+                }
+            }
+
+            // Also check for partial matches but with lower weight
+            const partialMatches = (content.match(new RegExp(keyword, 'gi')) || []).length - exactMatches;
+            if (partialMatches > 0) {
+                score += partialMatches * 3;
             }
         });
 
-        return { chunk, score };
+        // Much stricter relevance requirements
+        const relevanceThreshold = Math.max(1, Math.floor(keywords.length * 0.5)); // At least 50% of keywords should match
+        const minimumScore = 25; // Higher minimum score threshold
+        const isRelevant = keywordMatches >= relevanceThreshold && score >= minimumScore;
+
+        return {
+            chunk,
+            score: isRelevant ? score : 0,
+            keywordMatches,
+            relevanceThreshold,
+            isRelevant
+        };
     });
 
-    // Sort by score (highest first) and take top 3
+    // Sort by score (highest first) and take top 3 relevant chunks
     const relevantChunks = scoredChunks
-        .filter(item => item.score > 0) // Only chunks with matches
+        .filter(item => item.isRelevant && item.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, 3)
         .map(item => item.chunk);
 
-    console.log('Chunk scores:', scoredChunks.map(s => ({ index: s.chunk.chunkIndex, score: s.score })));
+    console.log('📊 Chunk relevance analysis:', {
+        totalChunks: kb.chunks.length,
+        keywordsSearched: keywords.length,
+        chunksWithMatches: scoredChunks.filter(s => s.score > 0).length,
+        relevantChunks: relevantChunks.length,
+        topScores: scoredChunks
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10)
+            .map(s => ({
+                index: s.chunk.chunkIndex,
+                score: s.score,
+                matches: s.keywordMatches,
+                relevant: s.isRelevant,
+                skipReason: s.skipReason || 'none',
+                preview: s.chunk.content.substring(0, 80) + '...'
+            }))
+    });
 
+    // Determine response strategy based on chunk relevance
     if (relevantChunks.length === 0) {
-        return {
-            question,
-            answer: 'No relevant information found in the knowledge base.',
-            chunks: [],
-            source: 'no_match'
-        };
+        console.log('❌ No relevant chunks found in knowledge base');
+
+        // Check if we should fall back to direct LLM search or return "not found"
+        const shouldUseLLMFallback = aiProvider && apiKey && apiKey.startsWith('sk-');
+
+        if (shouldUseLLMFallback) {
+            console.log('🤖 No relevant chunks found, using direct LLM search...');
+
+            try {
+                // Use LLM without knowledge base context for general questions
+                const directAnswer = await generateDirectAnswerWithLLM(question, aiProvider, model, apiKey);
+
+                return {
+                    question,
+                    answer: `No relevant information found in the knowledge base.\n\nGeneral answer: ${directAnswer}`,
+                    chunks: [],
+                    source: 'llm_direct',
+                    llmStatus: {
+                        used: true,
+                        error: null,
+                        provider: aiProvider,
+                        model: model || 'gpt-3.5-turbo',
+                        hasApiKey: true,
+                        apiKeyValid: true,
+                        mode: 'direct_search'
+                    }
+                };
+            } catch (error) {
+                console.error('❌ Direct LLM search failed:', error.message);
+                return {
+                    question,
+                    answer: 'No relevant information found in the knowledge base, and direct search is currently unavailable.',
+                    chunks: [],
+                    source: 'no_match',
+                    llmStatus: {
+                        used: false,
+                        error: `Direct LLM search failed: ${error.message}`,
+                        provider: aiProvider,
+                        model: model || 'gpt-3.5-turbo',
+                        hasApiKey: !!apiKey,
+                        apiKeyValid: validateApiKey(apiKey, aiProvider)
+                    }
+                };
+            }
+        } else {
+            console.log('💡 No LLM configured for fallback, returning not found message');
+            return {
+                question,
+                answer: 'No relevant information found in the knowledge base for your question.',
+                chunks: [],
+                source: 'no_match',
+                llmStatus: {
+                    used: false,
+                    error: 'No relevant chunks found and no LLM configured for fallback',
+                    provider: aiProvider || 'none',
+                    model: model || 'default',
+                    hasApiKey: !!apiKey,
+                    apiKeyValid: validateApiKey(apiKey, aiProvider)
+                }
+            };
+        }
     }
+
+    console.log(`✅ Found ${relevantChunks.length} relevant chunks, proceeding with context-based LLM generation`)
 
     // 2. Generate answer using LLM or simple text assembly
     console.log('\n🤖 === LLM GENERATION PHASE ===');
     console.log('🔍 Configuration validation:', {
         hasApiKey: !!apiKey,
         apiKeyLength: apiKey ? apiKey.length : 0,
-        apiKeyValid: apiKey ? (apiKey.startsWith('sk-') ? 'Looks valid (starts with sk-)' : 'Invalid format (should start with sk-)') : 'No API key',
+        apiKeyValid: apiKey ? (validateApiKey(apiKey, aiProvider) ? `Looks valid (${aiProvider} format)` : `Invalid format for ${aiProvider}`) : 'No API key',
         aiProvider: aiProvider || 'NOT SET',
         model: model || 'NOT SET (will use default)',
         chunksFound: relevantChunks.length
@@ -301,10 +495,17 @@ async function executeRAGNode(node, inputData, sessionId) {
         console.log('❌ REASON: No AI provider specified');
         console.log('💡 SOLUTION: Set AI Provider to "openai" in RAG node configuration');
         answer = `⚠️ No AI provider configured. Using fallback response.\n\nBased on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
-    } else if (!apiKey.startsWith('sk-')) {
+    } else if (!validateApiKey(apiKey, aiProvider)) {
         console.log('❌ REASON: Invalid API key format');
-        console.log('💡 SOLUTION: OpenAI API keys should start with "sk-"');
-        answer = `⚠️ Invalid API key format. Using fallback response.\n\nBased on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
+        console.log(`💡 SOLUTION: ${aiProvider} API keys should have the correct format`);
+        if (aiProvider === 'openai') {
+            console.log('💡 OpenAI API keys should start with "sk-"');
+        } else if (aiProvider === 'google') {
+            console.log('💡 Google API keys should start with "AIza"');
+        } else if (aiProvider === 'anthropic') {
+            console.log('💡 Anthropic API keys should start with "sk-ant-"');
+        }
+        answer = `⚠️ Invalid API key format for ${aiProvider}. Using fallback response.\n\nBased on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
     } else {
         console.log(`✅ All validations passed! Using ${aiProvider} API`);
         console.log(`🔑 API Key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
@@ -358,7 +559,7 @@ async function executeRAGNode(node, inputData, sessionId) {
             provider: aiProvider || 'none',
             model: model || 'default',
             hasApiKey: !!apiKey,
-            apiKeyValid: apiKey ? apiKey.startsWith('sk-') : false
+            apiKeyValid: validateApiKey(apiKey, aiProvider)
         }
     };
 
@@ -376,22 +577,55 @@ async function executeRAGNode(node, inputData, sessionId) {
     return result;
 }
 
+// Generate answer using LLM with knowledge base context
 async function generateAnswerWithLLM(question, chunks, provider, model, apiKey) {
-    console.log('\n🔧 === LLM API CALL DETAILS ===');
+    console.log('\n🔧 === CONTEXT-BASED LLM API CALL ===');
 
     const context = chunks.map(c => c.content).join('\n\n');
-    const prompt = `Answer the following question based on the provided context:\n\nContext:\n${context}\n\nQuestion: ${question}\n\nAnswer:`;
+    const prompt = `Answer the following question based ONLY on the provided context. If the context doesn't contain enough information to answer the question, say so clearly.
 
-    console.log('📋 Prompt details:', {
+Context:
+${context}
+
+Question: ${question}
+
+Answer:`;
+
+    console.log('📋 Context-based prompt details:', {
         contextLength: context.length,
         promptLength: prompt.length,
         chunksUsed: chunks.length,
         questionLength: question.length
     });
 
+    return await callLLMAPI(prompt, provider, model, apiKey, 'context-based');
+}
+
+// Generate direct answer using LLM without knowledge base context
+async function generateDirectAnswerWithLLM(question, provider, model, apiKey) {
+    console.log('\n🔧 === DIRECT LLM API CALL ===');
+
+    const prompt = `Answer the following question directly and concisely:
+
+Question: ${question}
+
+Answer:`;
+
+    console.log('📋 Direct prompt details:', {
+        promptLength: prompt.length,
+        questionLength: question.length,
+        mode: 'direct_search'
+    });
+
+    return await callLLMAPI(prompt, provider, model, apiKey, 'direct');
+}
+
+// Unified LLM API calling function
+async function callLLMAPI(prompt, provider, model, apiKey, mode) {
+
     try {
         if (provider === 'openai') {
-            console.log('🤖 Initializing OpenAI client...');
+            console.log(`🤖 Initializing OpenAI client for ${mode} mode...`);
             console.log('🔑 API Key validation:', {
                 keyStart: apiKey.substring(0, 10),
                 keyEnd: apiKey.substring(apiKey.length - 4),
@@ -410,17 +644,18 @@ async function generateAnswerWithLLM(question, chunks, provider, model, apiKey) 
             console.log('🎯 Request parameters:', {
                 model: requestModel,
                 promptLength: prompt.length,
-                maxTokens: 500,
-                temperature: 0.7,
-                messagesCount: 1
+                maxTokens: mode === 'direct' ? 300 : 500,
+                temperature: mode === 'direct' ? 0.3 : 0.7,
+                messagesCount: 1,
+                mode: mode
             });
 
             const startTime = Date.now();
             const response = await openai.chat.completions.create({
                 model: requestModel,
                 messages: [{ role: 'user', content: prompt }],
-                max_tokens: 500,
-                temperature: 0.7
+                max_tokens: mode === 'direct' ? 300 : 500,
+                temperature: mode === 'direct' ? 0.3 : 0.7
             });
             const endTime = Date.now();
 
@@ -431,18 +666,27 @@ async function generateAnswerWithLLM(question, chunks, provider, model, apiKey) 
                 finishReason: response.choices?.[0]?.finish_reason,
                 usage: response.usage,
                 model: response.model,
-                responseLength: response.choices?.[0]?.message?.content?.length || 0
+                responseLength: response.choices?.[0]?.message?.content?.length || 0,
+                mode: mode
             });
 
             const generatedAnswer = response.choices[0].message.content;
-            console.log('✅ Generated answer preview:', generatedAnswer.substring(0, 100) + '...');
+            console.log(`✅ Generated ${mode} answer preview:`, generatedAnswer.substring(0, 100) + '...');
 
             return generatedAnswer;
         }
 
         if (provider === 'google') {
-            // Use Google Gemini API
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-pro'}:generateContent?key=${apiKey}`, {
+            console.log(`🤖 Using Google Gemini API for ${mode} mode...`);
+
+            // Use environment variable as fallback for Google API key
+
+
+            // Use correct model names for Gemini
+            const geminiModel = model || 'gemini-2.5-flash';
+            console.log('🎯 Using Gemini model:', geminiModel);
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -454,28 +698,42 @@ async function generateAnswerWithLLM(question, chunks, provider, model, apiKey) 
                         }]
                     }],
                     generationConfig: {
-                        maxOutputTokens: 500,
-                        temperature: 0.7
+                        maxOutputTokens: mode === 'direct' ? 300 : 500,
+                        temperature: mode === 'direct' ? 0.3 : 0.7
                     }
                 })
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorText = await response.text();
+                console.error('Google API Error Response:', errorText);
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch (e) {
+                    throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+                }
                 throw new Error(`Gemini API error: ${errorData.error?.message || response.statusText}`);
             }
 
             const data = await response.json();
+            console.log('📥 Gemini response received:', {
+                hasCandidates: !!data.candidates,
+                candidatesLength: data.candidates?.length || 0,
+                hasContent: !!(data.candidates?.[0]?.content),
+                model: geminiModel
+            });
 
             if (data.candidates && data.candidates[0] && data.candidates[0].content) {
                 return data.candidates[0].content.parts[0].text;
             } else {
+                console.error('Invalid Gemini response format:', data);
                 throw new Error('Invalid response format from Gemini API');
             }
         }
 
         if (provider === 'anthropic') {
-            // Use Anthropic Claude API
+            console.log(`🤖 Using Anthropic Claude API for ${mode} mode...`);
             const response = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: {
@@ -485,7 +743,7 @@ async function generateAnswerWithLLM(question, chunks, provider, model, apiKey) 
                 },
                 body: JSON.stringify({
                     model: model || 'claude-3-sonnet-20240229',
-                    max_tokens: 500,
+                    max_tokens: mode === 'direct' ? 300 : 500,
                     messages: [{
                         role: 'user',
                         content: prompt
@@ -503,12 +761,11 @@ async function generateAnswerWithLLM(question, chunks, provider, model, apiKey) 
         }
 
         // Fallback for unsupported providers
-        return `Answer based on context: ${chunks[0].content.substring(0, 200)}...`;
+        throw new Error(`Unsupported AI provider: ${provider}`);
 
     } catch (error) {
-        console.error(`LLM API Error (${provider}):`, error);
-        // Return fallback answer on API error
-        return `Based on the available information: ${context.substring(0, 300)}...`;
+        console.error(`❌ LLM API Error (${provider}, ${mode} mode):`, error);
+        throw error; // Re-throw to be handled by calling function
     }
 }
 
