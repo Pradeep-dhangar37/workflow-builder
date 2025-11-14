@@ -367,9 +367,9 @@ async function executeRAGNode(node, inputData, sessionId) {
             }
         });
 
-        // Much stricter relevance requirements
-        const relevanceThreshold = Math.max(1, Math.floor(keywords.length * 0.5)); // At least 50% of keywords should match
-        const minimumScore = 25; // Higher minimum score threshold
+        // More lenient relevance requirements for better matching
+        const relevanceThreshold = Math.max(1, Math.floor(keywords.length * 0.3)); // At least 30% of keywords should match
+        const minimumScore = 10; // Lower minimum score threshold for better recall
         const isRelevant = keywordMatches >= relevanceThreshold && score >= minimumScore;
 
         return {
