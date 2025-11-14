@@ -497,6 +497,13 @@ async function executeRAGNode(node, inputData, sessionId) {
         answer = `⚠️ No AI provider configured. Using fallback response.\n\nBased on the knowledge base:\n\n${relevantChunks.map(c => c.content).join('\n\n')}`;
     } else if (!validateApiKey(apiKey, aiProvider)) {
         console.log('❌ REASON: Invalid API key format');
+        console.log('🔍 DEBUG: API Key details:', {
+            provider: aiProvider,
+            keyLength: apiKey ? apiKey.length : 0,
+            keyStart: apiKey ? apiKey.substring(0, 10) : 'NO KEY',
+            keyType: typeof apiKey,
+            startsWithAIza: apiKey ? apiKey.startsWith('AIza') : false
+        });
         console.log(`💡 SOLUTION: ${aiProvider} API keys should have the correct format`);
         if (aiProvider === 'openai') {
             console.log('💡 OpenAI API keys should start with "sk-"');
@@ -725,9 +732,21 @@ async function callLLMAPI(prompt, provider, model, apiKey, mode) {
             });
 
             if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                return data.candidates[0].content.parts[0].text;
+                const content = data.candidates[0].content;
+                console.log('📋 Content structure:', JSON.stringify(content, null, 2));
+
+                // Check if content has parts array
+                if (content.parts && content.parts[0] && content.parts[0].text) {
+                    return content.parts[0].text;
+                } else if (content.text) {
+                    // Some responses might have text directly
+                    return content.text;
+                } else {
+                    console.error('❌ No text found in content:', content);
+                    throw new Error('No text content found in Gemini response');
+                }
             } else {
-                console.error('Invalid Gemini response format:', data);
+                console.error('❌ Invalid Gemini response format:', JSON.stringify(data, null, 2));
                 throw new Error('Invalid response format from Gemini API');
             }
         }
