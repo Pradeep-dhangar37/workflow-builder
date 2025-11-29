@@ -40,6 +40,36 @@ function calculateSimilarity(str1, str2) {
     return intersection.size / union.size;
 }
 
+// Check for semantic matches (related words)
+function checkSemanticMatch(keyword, content) {
+    const semanticMap = {
+        'name': ['called', 'named', 'known as', 'i am', 'my name', 'sir', 'mr', 'mrs', 'ms', 'dr'],
+        'teacher': ['sir', 'professor', 'instructor', 'tutor', 'teaches', 'class', 'lecture'],
+        'age': ['years old', 'born', 'birthday', 'old am i'],
+        'work': ['job', 'career', 'employed', 'company', 'office'],
+        'live': ['home', 'address', 'residence', 'located', 'based'],
+        'like': ['love', 'enjoy', 'prefer', 'favorite', 'fond'],
+        'eat': ['food', 'meal', 'diet', 'consume', 'taste'],
+        'language': ['programming', 'code', 'coding', 'develop'],
+        'family': ['brother', 'sister', 'parent', 'mother', 'father'],
+        'subject': ['math', 'science', 'english', 'history', 'class', 'course', 'studying', 'study'],
+        'math': ['mathematics', 'calculus', 'algebra', 'geometry', 'arithmetic'],
+        'class': ['lecture', 'lesson', 'course', 'session', 'tomorrow', 'today'],
+        'studying': ['study', 'learning', 'preparing', 'reading', 'class', 'subject']
+    };
+
+    const relatedWords = semanticMap[keyword.toLowerCase()] || [];
+    let matches = 0;
+
+    relatedWords.forEach(related => {
+        if (content.toLowerCase().includes(related)) {
+            matches++;
+        }
+    });
+
+    return matches;
+}
+
 // Validate API key format based on provider
 function validateApiKey(apiKey, provider) {
     if (!apiKey) return false;
@@ -284,11 +314,19 @@ async function executeRAGNode(node, inputData, sessionId) {
     // Improved relevance-based keyword search with better scoring
     const query = question.toLowerCase();
 
-    // Extract meaningful keywords (remove common stop words)
+    // Extract meaningful keywords (smarter stop word filtering)
     const stopWords = ['what', 'is', 'are', 'the', 'a', 'an', 'how', 'why', 'when', 'where', 'who', 'which', 'can', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'about', 'tell', 'me', 'explain', 'please', 'help', 'find', 'show', 'give'];
+
+    // Keep important words even if short (like "I", "my", "am")
+    const importantShortWords = ['i', 'my', 'am', 'go', 'be', 'he', 'we', 'it'];
+
     const keywords = query
         .split(/\s+/)
-        .filter(word => word.length > 2 && !stopWords.includes(word));
+        .filter(word => {
+            const cleanWord = word.toLowerCase();
+            return (word.length > 2 && !stopWords.includes(cleanWord)) ||
+                importantShortWords.includes(cleanWord);
+        });
 
     console.log('🔍 Search keywords extracted:', keywords);
 
@@ -365,11 +403,17 @@ async function executeRAGNode(node, inputData, sessionId) {
             if (partialMatches > 0) {
                 score += partialMatches * 3;
             }
+
+            // Semantic matching - check for related words
+            const semanticMatches = checkSemanticMatch(keyword, content);
+            if (semanticMatches > 0) {
+                score += semanticMatches * 8; // Medium weight for semantic matches
+            }
         });
 
-        // More lenient relevance requirements for better matching
-        const relevanceThreshold = Math.max(1, Math.floor(keywords.length * 0.3)); // At least 30% of keywords should match
-        const minimumScore = 10; // Lower minimum score threshold for better recall
+        // Very lenient relevance requirements for better matching
+        const relevanceThreshold = 1; // At least 1 keyword should match
+        const minimumScore = 5; // Very low minimum score threshold for maximum recall
         const isRelevant = keywordMatches >= relevanceThreshold && score >= minimumScore;
 
         return {

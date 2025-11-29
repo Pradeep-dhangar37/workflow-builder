@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1100" height="750" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 750">
+  <defs>
+    <style>
+      .process-circle { 
+        fill: #e3f2fd; 
+        stroke: #1976d2; 
+        stroke-width: 2; 
+        filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
+      }
+      .datastore-rect { 
+        fill: #f3e5f5; 
+        stroke: #7b1fa2; 
+        stroke-width: 2; 
+        filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
+      }
+      .external-rect { 
+        fill: #e8f5e8; 
+        stroke: #388e3c; 
+        stroke-width: 2; 
+        filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.2));
+      }
+      .data-flow { 
+        stroke: #424242; 
+        stroke-width: 2; 
+        fill: none; 
+        marker-end: url(#arrowhead);
+      }
+      .flow-bg {
+        fill: white;
+        stroke: #999;
+        stroke-width: 1;
+        rx: 3;
+      }
+      .text-label { 
+        font-family: 'Arial', sans-serif; 
+        font-size: 11px; 
+        text-anchor: middle; 
+        font-weight: 600;
+      }
+      .title-text { 
+        font-family: 'Arial', sans-serif; 
+        font-size: 16px; 
+        font-weight: bold; 
+        text-anchor: middle; 
+        fill: #1976d2;
+      }
+      .process-text { 
+        font-family: 'Arial', sans-serif; 
+        font-size: 9px; 
+        text-anchor: middle; 
+        font-weight: 500;
+      }
+      .flow-label { 
+        font-family: 'Arial', sans-serif; 
+        font-size: 8px; 
+        text-anchor: middle; 
+        fill: #333;
+        font-weight: 500;
+      }
+      .legend-text {
+        font-family: 'Arial', sans-serif; 
+        font-size: 10px; 
+        font-weight: 500;
+      }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#424242" />
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1100" height="750" fill="#fafafa" stroke="#ddd" stroke-width="1"/>
+  
+  <!-- Title -->
+  <text x="550" y="25" class="title-text">Level 2 DFD: AI Workflow Builder System</text>
+  
+  <!-- External Entities -->
+  <!-- User -->
+  <rect x="30" y="80" width="80" height="50" rx="5" class="external-rect" />
+  <text x="70" y="100" class="text-label">User</text>
+  <text x="70" y="115" class="text-label">(Entity)</text>
+  
+  <!-- AI Providers -->
+  <rect x="950" y="250" width="120" height="60" rx="5" class="external-rect" />
+  <text x="1010" y="270" class="text-label">AI Providers</text>
+  <text x="1010" y="285" class="text-label">(OpenAI,</text>
+  <text x="1010" y="300" class="text-label">Google, etc.)</text>
+  
+  <!-- Row 1: Document Processing -->
+  <!-- 1.0 Document Upload -->
+  <circle cx="200" cy="120" r="35" class="process-circle" />
+  <text x="200" y="115" class="process-text">1.0</text>
+  <text x="200" y="127" class="process-text">Document Upload</text>
+  
+  <!-- 2.0 Text Chunking -->
+  <circle cx="400" cy="120" r="35" class="process-circle" />
+  <text x="400" y="115" class="process-text">2.0</text>
+  <text x="400" y="127" class="process-text">Text Chunking</text>
+  
+  <!-- 3.0 Knowledge Storage -->
+  <circle cx="615" cy="120" r="45" class="process-circle" />
+  <text x="615" y="115" class="process-text">3.0</text>
+  <text x="615" y="127" class="process-text">Knowledge Storage</text>
+  
+  <!-- Row 2: Query Processing -->
+  <!-- 4.0 Query Processing -->
+  <circle cx="200" cy="320" r="35" class="process-circle" />
+  <text x="200" y="315" class="process-text">4.0</text>
+  <text x="200" y="327" class="process-text">Query Processing</text>
+  
+  <!-- 5.0 Semantic Search -->
+  <circle cx="400" cy="320" r="35" class="process-circle" />
+  <text x="400" y="315" class="process-text">5.0</text>
+  <text x="400" y="327" class="process-text">Semantic Search</text>
+  
+  <!-- 6.0 Context Preparation -->
+  <circle cx="600" cy="320" r="35" class="process-circle" />
+  <text x="600" y="315" class="process-text">6.0</text>
+  <text x="600" y="327" class="process-text">Context Prep</text>
+  
+  <!-- 7.0 AI Response Generation -->
+  <circle cx="800" cy="320" r="35" class="process-circle" />
+  <text x="800" y="315" class="process-text">7.0</text>
+  <text x="800" y="327" class="process-text">AI Response</text>
+  
+  <!-- Row 3: Response Management -->
+  <!-- 8.0 Memory Management -->
+  <circle cx="400" cy="520" r="35" class="process-circle" />
+  <text x="400" y="515" class="process-text">8.0</text>
+  <text x="400" y="527" class="process-text">Memory Mgmt</text>
+  
+  <!-- 9.0 Response Formatting -->
+  <circle cx="200" cy="520" r="35" class="process-circle" />
+  <text x="200" y="515" class="process-text">9.0</text>
+  <text x="200" y="527" class="process-text">Response Format</text>
+  
+  <!-- Data Stores -->
+  <!-- D1: Knowledge Bases -->
+  <rect x="520" y="220" width="160" height="30" rx="3" class="datastore-rect" />
+  <text x="600" y="240" class="text-label">D1: Knowledge Bases</text>
+  
+  <!-- D2: Workflows -->
+  <rect x="50" y="650" width="120" height="30" rx="3" class="datastore-rect" />
+  <text x="110" y="670" class="text-label">D2: Workflows</text>
+  
+  <!-- D3: Conversations -->
+  <rect x="320" y="650" width="120" height="30" rx="3" class="datastore-rect" />
+  <text x="380" y="670" class="text-label">D3: Conversations</text>
+  
+  <!-- D4: Executions -->
+  <rect x="520" y="650" width="120" height="30" rx="3" class="datastore-rect" />
+  <text x="580" y="670" class="text-label">D4: Executions</text>
+  
+  <!-- Data Flows with Carefully Positioned Labels -->
+  
+  <!-- Flow 1: User to Document Upload -->
+  <path d="M 110 105 L 165 115" class="data-flow" />
+  <rect x="125" y="90" width="35" height="12" class="flow-bg" />
+  <text x="142" y="99" class="flow-label">Document</text>
+  
+  <!-- Flow 2: Document Upload to Text Chunking -->
+  <path d="M 235 120 L 365 120" class="data-flow" />
+  <rect x="285" y="105" width="30" height="12" class="flow-bg" />
+  <text x="300" y="114" class="flow-label">Raw Text</text>
+  
+  <!-- Flow 3: Text Chunking to Knowledge Storage -->
+  <path d="M 435 120 L 565 120" class="data-flow" />
+  <rect x="485" y="105" width="25" height="12" class="flow-bg" />
+  <text x="497" y="114" class="flow-label">Chunks</text>
+  
+  <!-- Flow 4: Knowledge Storage to Knowledge Base -->
+  <path d="M 600 155 L 600 220" class="data-flow" />
+  <rect x="610" y="180" width="20" height="12" class="flow-bg" />
+  <text x="620" y="189" class="flow-label">Store</text>
+  
+  <!-- Flow 5: User Query to Query Processing -->
+  <path d="M 110 130 L 110 280 L 165 305" class="data-flow" />
+  <rect x="85" y="200" width="25" height="12" class="flow-bg" />
+  <text x="97" y="209" class="flow-label">Query</text>
+  
+  <!-- Flow 6: Query Processing to Semantic Search -->
+  <path d="M 235 320 L 365 320" class="data-flow" />
+  <rect x="285" y="305" width="30" height="12" class="flow-bg" />
+  <text x="300" y="314" class="flow-label">Processed</text>
+  
+  <!-- Flow 7: Semantic Search to Knowledge Base -->
+  <path d="M 400 285 L 400 260 L 520 245" class="data-flow" />
+  <rect x="440" y="250" width="25" height="12" class="flow-bg" />
+  <text x="452" y="259" class="flow-label">Search</text>
+  
+  <!-- Flow 8: Knowledge Base to Context Preparation -->
+  <path d="M 600 250 L 600 285" class="data-flow" />
+  <rect x="610" y="260" width="25" height="12" class="flow-bg" />
+  <text x="622" y="269" class="flow-label">Chunks</text>
+  
+  <!-- Flow 9: Context Preparation to AI Response -->
+  <path d="M 635 320 L 765 320" class="data-flow" />
+  <rect x="685" y="305" width="25" height="12" class="flow-bg" />
+  <text x="697" y="314" class="flow-label">Context</text>
+  
+  <!-- Flow 10: AI Response to AI Providers -->
+  <path d="M 835 320 L 950 280" class="data-flow" />
+  <rect x="875" y="285" width="25" height="12" class="flow-bg" />
+  <text x="887" y="294" class="flow-label">API Call</text>
+  
+  <!-- Flow 11: AI Providers to AI Response -->
+  <path d="M 950 300 L 835 340" class="data-flow" />
+  <rect x="875" y="335" width="30" height="12" class="flow-bg" />
+  <text x="890" y="344" class="flow-label">Response</text>
+  
+  <!-- Flow 12: AI Response to Memory Management -->
+  <path d="M 800 355 L 800 450 L 435 505" class="data-flow" />
+  <rect x="610" y="440" width="20" height="12" class="flow-bg" />
+  <text x="620" y="449" class="flow-label">Q&amp;A</text>
+  
+  <!-- Flow 13: Memory Management to Response Formatting -->
+  <path d="M 365 520 L 235 520" class="data-flow" />
+  <rect x="285" y="505" width="20" height="12" class="flow-bg" />
+  <text x="295" y="514" class="flow-label">Final</text>
+  
+  <!-- Flow 14: Memory Management to Conversations -->
+  <path d="M 400 555 L 380 650" class="data-flow" />
+  <rect x="375" y="600" width="20" height="12" class="flow-bg" />
+  <text x="385" y="609" class="flow-label">Save</text>
+  
+  <!-- Flow 15: Response Formatting to User -->
+  <path d="M 165 505 L 130 450 L 70 130" class="data-flow" />
+  <rect x="115" y="320" width="25" height="12" class="flow-bg" />
+  <text x="127" y="329" class="flow-label">Answer</text>
+  
+  <!-- Flow 16: User to Workflows -->
+  <path d="M 70 130 L 70 600 L 110 650" class="data-flow" />
+  <rect x="45" y="390" width="30" height="12" class="flow-bg" />
+  <text x="60" y="399" class="flow-label">Workflow</text>
+  
+  <!-- Flow 17: Query Processing to Executions -->
+  <path d="M 235 355 L 320 450 L 520 665" class="data-flow" />
+  <rect x="410" y="560" width="15" height="12" class="flow-bg" />
+  <text x="417" y="569" class="flow-label">Log</text>
+  
+  <!-- Flow 18: Conversations to Memory Management -->
+  <path d="M 380 650 L 400 555" class="data-flow" />
+  <rect x="375" y="590" width="25" height="12" class="flow-bg" />
+  <text x="387" y="599" class="flow-label">History</text>
+  
+  <!-- Legend -->
+  <rect x="720" y="420" width="360" height="140" rx="5" fill="white" stroke="#999" stroke-width="1" />
+  <text x="900" y="440" class="text-label" style="font-weight: bold;">Legend</text>
+  
+  <circle cx="750" cy="460" r="15" class="process-circle" />
+  <text x="780" y="465" class="legend-text">Process</text>
+  
+  <rect x="830" y="450" width="60" height="20" rx="2" class="datastore-rect" />
+  <text x="900" y="465" class="legend-text">Data Store</text>
+  
+  <rect x="960" y="450" width="60" height="20" rx="2" class="external-rect" />
+  <text x="1025" y="465" class="legend-text">External</text>
+  
+  <path d="M 750 485 L 790 485" class="data-flow" />
+  <text x="820" y="490" class="legend-text">Data Flow</text>
+  
+  <!-- Process Reference -->
+  
+</svg>
